@@ -1,0 +1,1 @@
+from .MG3692B_Signal_Generator import MG3692B_Signal_Generator
