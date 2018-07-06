@@ -1,1 +1,1 @@
-from .MSO6054A_Oscilloscope import MSO6054A_Oscilloscope
+from .Oscilloscope_MSO6054A import Oscilloscope_MSO6054A
