@@ -15,10 +15,8 @@ class Programmable_Attenuator_83102042F:
         print("Serial Number:", identity[2])
         print("System Version:", identity[3])
 
-
     def initialize(self, attenuation):
-        self.write("*RST")
-        sleep(5)
+        self.reset()
         self.set_attenuation(attenuation)
 
     def set_attenuation(self, attenuation):
@@ -39,7 +37,7 @@ class Programmable_Attenuator_83102042F:
             self.write("ATTN {}".format(attenuation - attenuation % 2))
         else:
             self.write("ATTN {}".format(attenuation))
-        sleep(1)
+        sleep(2)
 
     def write(self, *args, **kwargs):
         self.session.write(*args, **kwargs)
@@ -58,3 +56,7 @@ class Programmable_Attenuator_83102042F:
     
     def close(self):
         self.session.close()
+
+    def reset(self):
+        self.write("*RST")
+        sleep(5)

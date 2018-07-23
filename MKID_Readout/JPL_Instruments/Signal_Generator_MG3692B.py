@@ -1,4 +1,5 @@
 import visa
+from time import sleep
 
 
 class Signal_Generator_MG3692B:
@@ -16,28 +17,35 @@ class Signal_Generator_MG3692B:
 
 
     def initialize(self, frequency, power):
-        self.write("*RST")
+        self.reset()
         self.turn_on_output()
         self.set_frequency(frequency)
         self.set_power(power)
+        sleep(1)
 
     def set_frequency(self, frequency):
         self.write("F1 {} GH;".format(frequency))
+        sleep(0.5)
 
     def set_power(self, power):
         self.write("L1 {} DM;".format(power))
+        sleep(0.5)
         
     def set_increment(self, frequency):
         self.write("F1 SYZ {:f} GH".format(frequency))
+        sleep(0.5)
         
     def turn_on_output(self):
         self.write("RF1")
+        sleep(0.5)
     
     def turn_off_output(self):
         self.write("RF0")
+        sleep(0.5)
         
     def increment(self):
         self.write("F1 UP")
+        sleep(0.02)
 
     def write(self, *args, **kwargs):
         self.session.write(*args, **kwargs)
@@ -57,3 +65,7 @@ class Signal_Generator_MG3692B:
     def close(self):
         self.turn_off_output()
         self.session.close()
+
+    def reset(self):
+        self.write("*RST")
+        sleep(1)

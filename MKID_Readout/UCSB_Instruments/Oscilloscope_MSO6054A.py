@@ -16,11 +16,11 @@ class Oscilloscope_MSO6054A:
         print("Serial Number:", identity[2])
         print("System Version:", identity[3])
 
-    def initialize(self, application, channels=[1, 3]):
+    def initialize(self, application, channels=(1, 3)):
         # recast channels as integers
         channels = [int(channel) for channel in channels]
         self.channels = channels
-        self.write("*RST")
+        self.reset()
         self.write("*CLS")
         if application == "pulse_data":
             assert len(channels) == 2, \
@@ -83,6 +83,7 @@ class Oscilloscope_MSO6054A:
             self.write(":WAVeform:FORMat WORD")
             self.write(":WAVeform:SOURce CHANnel{}".format(channels[1]))
             self.write(":WAVeform:FORMat WORD")
+        sleep(1)
 
     def take_pulse_data(self, offset, volts_per_div, n_triggers, trig_level, slope,
                         trig_chan):
@@ -138,13 +139,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[0]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -159,13 +160,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[1]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -177,8 +178,8 @@ class Oscilloscope_MSO6054A:
         Q_voltages = ((Q_values - y_reference) * y_increment) + y_origin
         
         # get new voltage range
-        dI = max(max(I_voltages) - min(I_voltages), 0.05)
-        dQ = max(max(Q_voltages) - min(Q_voltages), 0.05)
+        dI = max(1.2 * (max(I_voltages) - min(I_voltages)), 0.05)
+        dQ = max(1.2 * (max(Q_voltages) - min(Q_voltages)), 0.05)
         
         # get new voltage offset
         Ic = np.mean(I_voltages)
@@ -187,8 +188,8 @@ class Oscilloscope_MSO6054A:
         # reset the range and offset
         self.write(":CHANnel{}:RANGe {:.3f} V".format(self.channels[0], dI))
         self.write(":CHANnel{}:RANGe {:.3f} V".format(self.channels[1], dQ))
-        self.write(":CHANnel{}:OFFSet {:.2f} V".format(self.channels[0], Ic))
-        self.write(":CHANnel{}:OFFSet {:.2f} V".format(self.channels[1], Qc))
+        self.write(":CHANnel{}:OFFSet {:.3f} V".format(self.channels[0], Ic))
+        self.write(":CHANnel{}:OFFSet {:.3f} V".format(self.channels[1], Qc))
 
         # collect trigger
         self.write(":DIGitize CHANnel{}, CHANnel{}".format(*self.channels))
@@ -196,13 +197,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[0]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -217,13 +218,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[1]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -261,13 +262,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[0]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -282,13 +283,13 @@ class Oscilloscope_MSO6054A:
         self.write(":WAVeform:SOURce CHANnel{}".format(self.channels[1]))
         # get preamble
         preamble = self.query_ascii_values(":WAVeform:PREamble?")
-        wav_form = preamble[0]
-        acq_type = preamble[1]
-        wfmpts = preamble[2]
-        avgcnt = preamble[3]
-        x_increment = preamble[4]
-        x_origin = preamble[5]
-        x_reference = preamble[6]
+        # wav_form = preamble[0]
+        # acq_type = preamble[1]
+        # wfmpts = preamble[2]
+        # avgcnt = preamble[3]
+        # x_increment = preamble[4]
+        # x_origin = preamble[5]
+        # x_reference = preamble[6]
         y_increment = preamble[7]
         y_origin = preamble[8]
         y_reference = preamble[9]
@@ -302,3 +303,7 @@ class Oscilloscope_MSO6054A:
         return I_voltages, Q_voltages
     def close(self):
         self.session.close()
+
+    def reset(self):
+        self.write("*RST")
+        sleep(1)
