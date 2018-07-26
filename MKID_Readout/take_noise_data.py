@@ -54,3 +54,5 @@ def take_noise_data(frequency, attenuation, power, offset, volts_per_div, n_trig
 
     if verbose:
         print(summary)
+        
+    return file_path

@@ -55,3 +55,5 @@ def take_pulse_data(frequency, attenuation, power, offset, volts_per_div, n_trig
     np.savez(file_path, I_traces=I_data, Q_traces=Q_data, meta=metadata)
     if verbose:
         print(summary)
+        
+    return file_path

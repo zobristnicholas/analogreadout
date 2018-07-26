@@ -1,7 +1,9 @@
 import visa
 import numpy as np
 from time import sleep
-
+# TODO use take_data method properly in other data taking methods
+# TODO make autoscale function to use in noise and pulse data
+# TODO make pulse triggering automatic
 
 class Oscilloscope_MSO6054A:
     def __init__(self, address):
@@ -178,8 +180,8 @@ class Oscilloscope_MSO6054A:
         Q_voltages = ((Q_values - y_reference) * y_increment) + y_origin
         
         # get new voltage range
-        dI = max(1.2 * (max(I_voltages) - min(I_voltages)), 0.05)
-        dQ = max(1.2 * (max(Q_voltages) - min(Q_voltages)), 0.05)
+        dI = max(2 * (max(I_voltages) - min(I_voltages)), 0.05)
+        dQ = max(2 * (max(Q_voltages) - min(Q_voltages)), 0.05)
         
         # get new voltage offset
         Ic = np.mean(I_voltages)

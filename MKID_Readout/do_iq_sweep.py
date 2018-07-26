@@ -38,8 +38,10 @@ def do_iq_sweep(center, span, attenuation, power, n_points, directory, verbose=T
     sig_gen.initialize(center, power)
 
     # generate list of frequencies to loop through
-    df = round(span / n_points, 6)
-    freq_list = np.arange(center - span / 2, center + span / 2, df)
+    freq_list = np.linspace(center - span / 2, center + span / 2, n_points)
+    freq_list = np.round(freq_list, 6)
+    df = np.round(np.mean(np.diff(freq_list)), 7)
+
     iq_list = np.zeros(freq_list.shape, dtype=np.complex)
     iq_offset = np.zeros(freq_list.shape, dtype=np.complex)
 
@@ -48,10 +50,10 @@ def do_iq_sweep(center, span, attenuation, power, n_points, directory, verbose=T
     
     # take initial point a few times to get the scope in the right scale range
     sig_gen.set_frequency(freq_list[0])
-    scope.take_iq_point()
-    scope.take_iq_point()
-    scope.take_iq_point()
-    
+    for _ in range(30):
+        scope.take_iq_point()
+   
+
     # loop through the frequencies and take data
     for index, frequency in enumerate(freq_list):
         if index != 0:
@@ -64,9 +66,8 @@ def do_iq_sweep(center, span, attenuation, power, n_points, directory, verbose=T
     
     # take initial point a few times to get the scope in the right scale range
     sig_gen.set_frequency(freq_list[0])
-    scope.take_iq_point()
-    scope.take_iq_point()
-    scope.take_iq_point()
+    for _ in range(30):
+        scope.take_iq_point()
     
     # loop through the frequencies and take data
     for index, frequency in enumerate(freq_list):
@@ -83,3 +84,4 @@ def do_iq_sweep(center, span, attenuation, power, n_points, directory, verbose=T
     np.savez(file_path, freqs=freq_list, z=iq_list, z0=iq_offset, meta=metadata)
     if verbose:
         print(summary)
+    return file_path
