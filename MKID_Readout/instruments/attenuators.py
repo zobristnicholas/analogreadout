@@ -1,14 +1,17 @@
 import visa
+import warnings
+import numpy as np
 from time import sleep
+from MKID_Readout.custom_warnings import ConnectionWarning
 
 
-class Programmable_Attenuator_83102042F:
+class Weinschel83102042F:
     def __init__(self, address):
         try:
-            resourceManager = visa.ResourceManager()
+            resource_manager = visa.ResourceManager()
         except:
-            resourceManager = visa.ResourceManager('@py')
-        self.session = resourceManager.open_resource(address)
+            resource_manager = visa.ResourceManager('@py')
+        self.session = resource_manager.open_resource(address)
         identity = self.query_ascii_values("*IDN?", 's')
         print("Connected to:", identity[0])
         print("Model Number:", identity[1])
@@ -24,16 +27,14 @@ class Programmable_Attenuator_83102042F:
         self.write("ATTN 0")
         self.write("CHAN 1")
         if attenuation > 62:
-            print("62 dB is the max attenuation")
-            print("setting at 62 dB")
+            warnings.warn("setting at 62 dB, the max attenuation", UserWarning)
             self.write("ATTN 62")
         elif attenuation < 0:
-            print ("0 dB is the minimum attenuation")
-            print("setting at 0 dB")
+            warnings.warn("setting at 0 dB, the min attenuation", UserWarning)
             self.write("ATTN 0")
         elif (attenuation % 2) != 0:
-            print("Only attenuations divisible by 2 allowed")
-            print("setting at {:.0f} dB".format(attenuation - attenuation % 2))
+            message = "setting at {:.0f} dB, only attenuations divisible by 2 are allowed"
+            warnings.warn(message.format(attenuation - attenuation % 2))
             self.write("ATTN {}".format(attenuation - attenuation % 2))
         else:
             self.write("ATTN {}".format(attenuation))
@@ -60,3 +61,31 @@ class Programmable_Attenuator_83102042F:
     def reset(self):
         self.write("*RST")
         sleep(5)
+
+
+class NotAnAttenuator:
+    def __init__(self, name=''):
+        self.name = name
+        self.warn("connection")
+
+    def initialize(self, attenuation):
+        if attenuation != 0:
+            self.warn("set")
+
+    def set_attenuation(self, attenuation):
+        if attenuation != 0:
+            self.warn("set")
+
+    def close(self):
+        pass
+
+    def reset(self):
+        pass
+
+    def warn(self, warning_type):
+        if warning_type == "connection":
+            warnings.warn("{} attenuator does not exist and will be ignored"
+                          .format(self.name), ConnectionWarning)
+        elif warning_type == "set":
+            warnings.warn("{} attenuator does not exist so it can not be set"
+                          .format(self.name), UserWarning)
