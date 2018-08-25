@@ -71,7 +71,7 @@ class AnritsuMG3692B:
                 raise ValueError("can only set one frequency at a time")
             frequency = frequency[0]
         self.write("F1 {} GH;".format(frequency))
-        sleep(0.5)
+        sleep(0.05)
 
     def set_power(self, power):
         if isinstance(power, (list, tuple, np.ndarray)):

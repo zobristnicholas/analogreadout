@@ -15,8 +15,9 @@ def jpl_config():
 
     dac_config = {"dac": {"instrument": "AnritsuMG3692B", "arguments": (sig_gen_address,),
                           "location": "signal_generators", "power": 14},
-                  "attenuator": {"type": "Weinschel83102042F",
-                                 "arguments": (atten_address,)}}
+                  "attenuator": {"instrument": "Weinschel83102042F",
+                                 "arguments": (atten_address,),
+                                 "location": "attenuators"}}
     adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (scope_address,),
                           "location": "oscilloscopes"}}
     sensor_config = {}  # thermometer, primary_amplifier

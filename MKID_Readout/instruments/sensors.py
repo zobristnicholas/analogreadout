@@ -22,5 +22,5 @@ class NotASensor:
         pass
 
     def warn(self):
-        warnings.warn("{} sensor is not connected and was not initialized"
-                      .format(self.name), ConnectionWarning)
+        message = "{} sensor is not connected and was not initialized"
+        warnings.warn(message.format(self.name), ConnectionWarning)

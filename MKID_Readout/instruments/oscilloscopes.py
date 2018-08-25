@@ -33,15 +33,13 @@ class AgilentMSO6054A:
         self._write(":WAVeform:FORMat WORD")
         self._write(":WAVeform:SOURce CHANnel{}".format(self.channels[1]))
         self._write(":WAVeform:FORMat WORD")
-        # set trigger to normal
-        self._write(":TRIGger:SWEep NORMal")
+        # set full scale vertical range in volts for each channel
+        self._set_range(0, 5)
+        self._set_range(1, 5)
 
         if application == "pulse_data":
             assert len(self.channels) == 2, \
                 "Only two channels allowed, one for I and another for Q"
-            # set full scale vertical range in volts for each channel
-            self._set_range(0, 0.016)
-            self._set_range(1, 0.016)
             # set the time range (10xs the time per division)
             self._write(":TIMebase:RANGe 500e-6")
 
@@ -50,27 +48,16 @@ class AgilentMSO6054A:
             self._write(":TIMebase:RANGe 500e-6")
 
         elif application == "sweep_data":
-            # set full scale vertical range in volts for each channel
-            self._set_range(0, 5)
-            self._set_range(1, 5)
             # set the time range (10xs the time per division)
             self._write(":TIMebase:RANGe 1e-3")
+            # remove trigger from the data range
+            self._set_trigger(0, 5, 1)
         sleep(1)
 
-    def take_pulse_data(self, offset, volts_per_div, n_triggers, trig_level, slope,
-                        trig_chan):
-        self._auto_range(search_length=50)  # 50 * 500 us = 25 ms of data
-        self._autoscale_trigger()
-        d1 = volts_per_div[0] * 8
-        d2 = volts_per_div[1] * 8
-
-        self._write(":CHANnel{}:RANGe {:.6f} V".format(self.channels[0], d1))
-        self._write(":CHANnel{}:RANGe {:.6f} V".format(self.channels[1], d2))
-        self._write(":CHANnel{}:OFFSet {:.6f} V".format(self.channels[0], offset[0]))
-        self._write(":CHANnel{}:OFFSet {:.6f} V".format(self.channels[1], offset[1]))
-        self._write(":TRIGger:SOURce CHANnel{}".format(trig_chan))
-        self._write(":TRIGger:LEVel {:.6f}".format(trig_level))
-        self._write(":TRIGger:SLOPe {}".format(slope))
+    def take_pulse_data(self, n_triggers):
+        self._auto_range(search_length=500, max_range=True, max_iteration=1)  # 500 * 500 us = 250 ms of data
+        self._autoscale_trigger(search_length=500, n_sigma=5)
+        self._set_sweep_mode("normal")
 
         data_I = np.zeros((n_triggers, 1000))
         data_Q = np.zeros((n_triggers, 1000))
@@ -84,13 +71,14 @@ class AgilentMSO6054A:
     def take_noise_data(self, n_triggers):
         # find appropriate range and offset for the scope
         self._auto_range()
+        # remove trigger from the data range
+        self._set_trigger(0, 5, 1)
 
         data_I = np.zeros((n_triggers, 1000))
         data_Q = np.zeros((n_triggers, 1000))
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * .001  # no longer than a milisecond
             sleep(rand_time)
-            self._single_trigger()
             I_voltages, Q_voltages = self._get_data()
             data_I[index, :] = I_voltages
             data_Q[index, :] = Q_voltages
@@ -101,7 +89,6 @@ class AgilentMSO6054A:
         # find appropriate range and offset for the scope
         self._auto_range()
         # take data with those settings
-        self._single_trigger()
         I_voltages, Q_voltages = self._get_data()
         # combine I and Q signals
         data = np.median(I_voltages) + 1j * np.median(Q_voltages)
@@ -138,25 +125,43 @@ class AgilentMSO6054A:
 
         return I_voltages, Q_voltages
 
-    def _auto_range(self, search_length=1):
+    def _auto_range(self, search_length=1, max_range=False, max_iteration=20):
+        scale = 20
         stop_condition = False
         itteration = 0
-        dI_old, dQ_old, Ic_old, Qc_old = 0, 0, 0, 0
+        dI_old = self._get_range(0)
+        dQ_old = self._get_range(1)
+        Ic_old = self._get_offset(0)
+        Qc_old = self._get_offset(1)
+
         while not stop_condition:
-            I_max, I_min, I_median = [], [], []
-            Q_max, Q_min, Q_median = [], [], []
+            I_median, I_std, Q_median, Q_std = [], [], [], []
             for _ in range(search_length):
                 self._single_trigger()
                 I_voltages, Q_voltages = self._get_data()
-                I_max.append(np.max(I_voltages))
-                I_min.append(np.min(I_voltages))
                 I_median.append(np.median(I_voltages))
-                Q_max.append(np.max(Q_voltages))
-                Q_min.append(np.min(Q_voltages))
                 Q_median.append(np.median(Q_voltages))
+                if max_range:
+                    I_std.append((np.max(I_voltages) - np.min(I_voltages)) / scale)
+                    Q_std.append((np.max(Q_voltages) - np.min(Q_voltages)) / scale)
+                else:
+                    I_std.append(np.std(I_voltages))
+                    Q_std.append(np.std(Q_voltages))
             # get new voltage range
-            dI = max(1.5 * (max(I_max) - min(I_min)), 0.05)
-            dQ = max(1.5 * (max(Q_max) - min(Q_min)), 0.05)
+            if np.mean(I_std) == 0:
+                dI = dI_old * 2
+            else:
+                if max_range:
+                    dI = max(3 * scale * np.max(I_std), 0.2)
+                else:
+                    dI = max(scale * np.mean(I_std), 0.2)
+            if np.mean(Q_std) == 0:
+                dQ = dQ_old * 2 
+            else:
+                if max_range:
+                    dQ = max(3 * scale * np.max(Q_std), 0.2)
+                else:
+                    dQ = max(scale * np.mean(Q_std), 0.2)
 
             # get new voltage offset
             Ic = np.mean(I_median)
@@ -166,19 +171,28 @@ class AgilentMSO6054A:
             self._set_range(1, dQ)
             self._set_offset(0, Ic)
             self._set_offset(1, Qc)
+            
+            # See what we set it to (scope rounds to the nearest legal value)
+            dI = self._get_range(0)
+            dQ = self._get_range(1)
+            Ic = self._get_offset(0)
+            Qc = self._get_offset(1)
 
             # calculate offset and range changes
-            range_change = ((np.abs(dI_old - dI) + np.abs(dQ_old - dQ)) /
-                            np.abs(dI) + np.abs(dQ))
-            offset_change = ((np.abs(Ic_old - Ic) + np.abs(Qc_old - Qc)) /
-                             (np.abs(Ic) + np.abs(Qc)))
+            range_change = (np.abs(dI_old - dI) / (np.abs(dI) + 0.001) +
+                            np.abs(dQ_old - dQ) / (np.abs(dQ) + 0.001))
+            offset_change = (np.abs(Ic_old - Ic) / (np.abs(Ic) + 0.001) +
+                             np.abs(Qc_old - Qc) / (np.abs(Qc) + 0.001))
 
             # save offsets and ranges
             dI_old, dQ_old, Ic_old, Qc_old = dI, dQ, Ic, Qc
+            
+            std_not_zero = np.logical_and(np.mean(I_std) != 0, np.mean(Q_std) != 0)
+            small_change = np.logical_and(offset_change < 0.15, range_change < 0.15)
 
-            stop_condition = np.logical_or(itteration > 20,
-                                           np.logical_and(offset_change < 0.05,
-                                                          range_change < 0.05))
+            itteration += 1
+            stop_condition = np.logical_or(itteration >= max_iteration,
+                                           np.logical_and(std_not_zero, small_change))
 
     def _get_voltages(self):
         # get preamble
@@ -266,3 +280,18 @@ class AgilentMSO6054A:
 
     def _single_trigger(self):
         self._write(":SINGle")
+
+    def _get_range(self, channel):
+        return float(self._query(":CHANnel{}:RANGe?".format(self.channels[channel])))
+    
+    def _get_offset(self, channel):
+        return float(self._query(":CHANnel{}:OFFSet?".format(self.channels[channel])))
+    
+    def _set_sweep_mode(self, mode):
+        if mode == "auto":
+            self._write(":TRIGger:SWEep AUTO")
+        elif mode == "normal":
+            self._write(":TRIGger:SWEep NORMal")
+        else:
+            message = "{} is not a valid sweep mode. Use 'auto' or 'normal'"
+            raise ValueError(message.format(mode))

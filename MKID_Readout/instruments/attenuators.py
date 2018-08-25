@@ -26,7 +26,12 @@ class Weinschel83102042F:
         self.write("CHAN 2")
         self.write("ATTN 0")
         self.write("CHAN 1")
-        if attenuation > 62:
+        if np.isinf(attenuation) and attenuation > 0:
+            self.write("CHAN 2")
+            self.write("ATTN 62")
+            self.write("CHAN 1")
+            self.write("ATTN 62")
+        elif attenuation > 62:
             warnings.warn("setting at 62 dB, the max attenuation", UserWarning)
             self.write("ATTN 62")
         elif attenuation < 0:
@@ -84,8 +89,8 @@ class NotAnAttenuator:
 
     def warn(self, warning_type):
         if warning_type == "connection":
-            warnings.warn("{} attenuator does not exist and will be ignored"
-                          .format(self.name), ConnectionWarning)
+            message = "{} attenuator does not exist and will be ignored"
+            warnings.warn(message.format(self.name), ConnectionWarning)
         elif warning_type == "set":
-            warnings.warn("{} attenuator does not exist so it can not be set"
-                          .format(self.name), UserWarning)
+            message = "{} attenuator does not exist so it can not be set"
+            warnings.warn(message.format(self.name), UserWarning)
