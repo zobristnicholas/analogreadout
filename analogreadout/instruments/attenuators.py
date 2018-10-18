@@ -2,7 +2,7 @@ import visa
 import warnings
 import numpy as np
 from time import sleep
-from MKID_Readout.custom_warnings import ConnectionWarning
+from analogreadout.custom_warnings import ConnectionWarning
 
 
 class Weinschel83102042F:

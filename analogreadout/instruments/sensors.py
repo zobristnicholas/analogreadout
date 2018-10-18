@@ -1,6 +1,6 @@
 import warnings
 import numpy as np
-from MKID_Readout.custom_warnings import ConnectionWarning
+from analogreadout.custom_warnings import ConnectionWarning
 
 
 class NotASensor:

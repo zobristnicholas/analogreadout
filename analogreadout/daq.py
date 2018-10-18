@@ -1,6 +1,6 @@
 import importlib
-from MKID_Readout.instruments.attenuators import NotAnAttenuator
-from MKID_Readout.instruments.sensors import NotASensor
+from analogreadout.instruments.attenuators import NotAnAttenuator
+from analogreadout.instruments.sensors import NotASensor
 
 
 def get_instrument(dictionary):

@@ -1,8 +1,8 @@
 import warnings
-from MKID_Readout.daq import DAQ
-from MKID_Readout.configurations import config
-from MKID_Readout.custom_warnings import ConnectionWarning
-from MKID_Readout.functions import take_noise_data, do_iq_sweep, take_pulse_data
+from analogreadout.daq import DAQ
+from analogreadout.configurations import config
+from analogreadout.custom_warnings import ConnectionWarning
+from analogreadout.functions import take_noise_data, do_iq_sweep, take_pulse_data
 
 DEFAULT_CONFIG = "JPL"
 
