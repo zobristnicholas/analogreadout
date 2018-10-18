@@ -51,7 +51,6 @@ n_points: {n_points}
         # ignoring warnings for setting infinite attenuation
         warnings.simplefilter("ignore", UserWarning)
         daq.initialize("sweep_data", freq_list[:, 0], power, np.inf, np.inf)
-        
 
     # loop through the frequencies and take data
     for index, _ in enumerate(freq_list[0, :]):
@@ -140,7 +139,6 @@ sample_rate: {sample_rate}
     daq.initialize("pulse_data", frequency, power, dac_atten, adc_atten)
 
     # take the data
-    # TODO remove offset volts_per_div as required arguments
     I_data, Q_data = daq.adc.take_pulse_data(n_triggers)
 
     # save the data

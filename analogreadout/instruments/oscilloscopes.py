@@ -10,7 +10,7 @@ class AgilentMSO6054A:
         self.channels = channels
         try:
             resource_manager = visa.ResourceManager()
-        except Error:
+        except Exception:
             resource_manager = visa.ResourceManager('@py')
         self.session = resource_manager.open_resource(address)
         identity = self._query_ascii_values("*IDN?", 's')
@@ -55,7 +55,8 @@ class AgilentMSO6054A:
         sleep(1)
 
     def take_pulse_data(self, n_triggers):
-        self._auto_range(search_length=500, max_range=True, max_iteration=1)  # 500 * 500 us = 250 ms of data
+        # 500 * 500 us = 250 ms of data
+        self._auto_range(search_length=500, max_range=True, max_iteration=1)
         self._autoscale_trigger(search_length=500, n_sigma=5)
         self._set_sweep_mode("normal")
 
@@ -77,7 +78,7 @@ class AgilentMSO6054A:
         data_I = np.zeros((n_triggers, 1000))
         data_Q = np.zeros((n_triggers, 1000))
         for index in range(n_triggers):
-            rand_time = np.random.random_sample() * .001  # no longer than a milisecond
+            rand_time = np.random.random_sample() * .001  # no longer than a millisecond
             sleep(rand_time)
             I_voltages, Q_voltages = self._get_data()
             data_I[index, :] = I_voltages
