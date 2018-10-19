@@ -75,8 +75,8 @@ class NI6120:
         (self.channels.size, self.samples_per_channel) and dtype =  np.float64
         """
         n_channels = len(self.channels)
-        size = (np.int(self.samples_per_channel * n_channels),)
-        data = np.empty(size, dtype=np.float64)
+        size = np.int(self.samples_per_channel * n_channels)
+        data = np.empty((size,), dtype=np.float64)
 
         self.session.StartTask()
         # byref() Returns a pointer lookalike to a C instance
@@ -85,8 +85,7 @@ class NI6120:
         fill_mode = DAQmx_Val_GroupByChannel
 
         self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
-                                   fill_mode, data, n_channels, samples_per_channel_read,
-                                   None)
+                                   fill_mode, data, size, samples_per_channel_read, None)
         self.session.StopTask()
 
         # get data
