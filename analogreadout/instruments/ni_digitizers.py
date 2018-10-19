@@ -1,5 +1,6 @@
 import PyDAQmx
 import numpy as np
+from time import sleep
 
 DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising
 DAQmx_Val_FiniteSamps = PyDAQmx.DAQmxConstants.DAQmx_Val_FiniteSamps
@@ -35,9 +36,23 @@ class NI6120:
             self._create_channels(channels=channels)
             self._configure_sampling(sample_rate=sample_rate, num_samples=num_samples)
             self._set_channel_coupling()
+            self._disable_aa_filter()
 
         elif application == "sweep_data":
             pass
+        
+    def take_noise_data(self, n_triggers):
+        data = []
+        n_channels = len(self.channels)
+        for _ in range(n_channels):
+            data.append(np.zeros((n_triggers, int(self.samples_per_channel))))
+        for index in range(n_triggers):
+            rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
+            sleep(rand_time)
+            sample = self._acquire_readings()
+            for channel_index in range(n_channels):
+                data[channel_index][index, :] = sample[channel_index, :]
+        return tuple(data)
 
     def reset(self):
         """
@@ -101,7 +116,7 @@ class NI6120:
         self.session.StopTask()
 
         # get data
-        data = np.array(np.hsplit(data, n_channels))
+        data = np.array(np.hsplit(data, n_channels)) * (2**15-1) / self.input_range_max
 
         return data
 
