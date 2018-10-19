@@ -21,7 +21,7 @@ class NI6120:
         self.input_range_max = 0.2
         self.input_range_min = -1.0 * self.input_range_max
         # set default physical channel(s) to use
-        self.channels = ["/ai0", "/ai1", "/ai2", "/ai3"]
+        self.channels = ["/ai1", "/ai0", "/ai3", "/ai2"]  # I1, Q1, I2, Q2
         self.channels = [self.device + channel for channel in self.channels]
         # set default sample rate
         self.sample_rate = 8.0e5  # samples per second
@@ -116,7 +116,7 @@ class NI6120:
         self.session.StopTask()
 
         # get data
-        data = np.array(np.hsplit(data, n_channels)) * (2**15-1) / self.input_range_max
+        data = np.array(np.hsplit(data, n_channels))
 
         return data
 
