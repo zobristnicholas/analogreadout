@@ -27,6 +27,18 @@ class NI6120:
         # set default number of samples per channel
         self.samples_per_channel = 2e4
 
+    def initialize(self, application, channels=None, sample_rate=None, num_samples=None):
+        if application == "pulse_data":
+            pass
+
+        elif application == "noise_data":
+            self._create_channels(channels=channels)
+            self._configure_sampling(sample_rate=sample_rate, num_samples=num_samples)
+            self._set_channel_coupling()
+
+        elif application == "sweep_data":
+            pass
+
     def reset(self):
         """
         Resets the digitizer.
