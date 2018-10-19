@@ -1,7 +1,7 @@
 import PyDAQmx
 import numpy as np
 
-DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising,
+DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising
 DAQmx_Val_FiniteSamps = PyDAQmx.DAQmxConstants.DAQmx_Val_FiniteSamps
 DAQmx_Val_Cfg_Default = PyDAQmx.DAQmxConstants.DAQmx_Val_Cfg_Default
 DAQmx_Val_Volts = PyDAQmx.DAQmxConstants.DAQmx_Val_Volts
@@ -74,7 +74,9 @@ class NI6120:
         Returns the digitized readings for two channels. An array is returned of shape
         (self.channels.size, self.samples_per_channel) and dtype =  np.float64
         """
-        data = np.empty((np.int(self.samples_per_channel * 2),), dtype=np.float64)
+        n_channels = len(self.channels)
+        size = (np.int(self.samples_per_channel * n_channels),)
+        data = np.empty(size, dtype=np.float64)
 
         self.session.StartTask()
         # byref() Returns a pointer lookalike to a C instance
@@ -82,16 +84,15 @@ class NI6120:
         # as opposed to DAQmx_Val_GroupByScanNumber
         fill_mode = DAQmx_Val_GroupByChannel
 
-        error = self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
-                                           fill_mode, data,
-                                           np.int(self.samples_per_channel * 2),
-                                           samples_per_channel_read, None)
+        self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
+                                   fill_mode, data, n_channels, samples_per_channel_read,
+                                   None)
         self.session.StopTask()
 
         # get data
-        data = np.array(np.hsplit(data, (np.int(self.samples_per_channel),)))
+        data = np.array(np.hsplit(data, n_channels))
 
-        return data, error
+        return data
 
     def _enable_aa_filter(self):
         """
