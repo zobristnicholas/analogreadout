@@ -35,7 +35,7 @@ class MultipleSignalGenerators(list):
                         kwargs[key] = [value] * len(self)
                 # modify the args
                 new_args = [arg[index] for arg in args]
-                new_kwargs = {key: value[0] for key, value in kwargs.items()}
+                new_kwargs = {key: value[index] for key, value in kwargs.items()}
                 # run the method and put the result in the container
                 container.append(old_method(*new_args, **new_kwargs))
             # return None if no output from old_method
@@ -45,7 +45,7 @@ class MultipleSignalGenerators(list):
         return new_method
 
 
-class AnritsuMG3692B:
+class AnritsuABC:
     def __init__(self, address):
         try:
             resource_manager = visa.ResourceManager()
@@ -59,12 +59,13 @@ class AnritsuMG3692B:
         print("System Version:", identity[3])
 
     def initialize(self, frequency, power):
+        self.turn_off_output()
         self.reset()
-        self.turn_on_output()
         self.set_frequency(frequency)
         self.set_power(power)
+        self.turn_on_output()
         sleep(1)
-
+        
     def set_frequency(self, frequency):
         if isinstance(frequency, (list, tuple, np.ndarray)):
             if len(frequency) != 1:
@@ -80,27 +81,7 @@ class AnritsuMG3692B:
             power = power[0]
         self.write("L1 {} DM;".format(power))
         sleep(0.5)
-
-    def set_increment(self, frequency):
-        if isinstance(frequency, (list, tuple, np.ndarray)):
-            if len(frequency) != 1:
-                raise ValueError("can only set one frequency at a time")
-            frequency = frequency[0]
-        self.write("F1 SYZ {:f} GH".format(frequency))
-        sleep(0.5)
-
-    def turn_on_output(self):
-        self.write("RF1")
-        sleep(0.5)
-
-    def turn_off_output(self):
-        self.write("RF0")
-        sleep(0.5)
-
-    def increment(self):
-        self.write("F1 UP")
-        sleep(0.1)
-
+        
     def write(self, *args, **kwargs):
         self.session.write(*args, **kwargs)
 
@@ -123,3 +104,42 @@ class AnritsuMG3692B:
     def reset(self):
         self.write("*RST")
         sleep(1)
+        
+    def turn_on_output(self):
+        raise NotImplementedError
+        
+    def turn_off_output(self):
+        raise NotImplementedError
+
+
+class AnritsuMG37022A(AnritsuABC):
+    def turn_on_output(self):
+        self.write("OUTPut: ON")
+        sleep(0.5)
+
+    def turn_off_output(self):
+        self.write("OUTPut: OFF")
+        sleep(0.5)
+
+
+class AnritsuMG3692B(AnritsuABC):
+    def set_increment(self, frequency):
+        if isinstance(frequency, (list, tuple, np.ndarray)):
+            if len(frequency) != 1:
+                raise ValueError("can only set one frequency at a time")
+            frequency = frequency[0]
+        self.write("F1 SYZ {:f} GH".format(frequency))
+        sleep(0.5)
+    
+    def increment(self):
+        self.write("F1 UP")
+        sleep(0.1)
+
+    def turn_on_output(self):
+        self.write("RF1")
+        sleep(0.5)
+
+    def turn_off_output(self):
+        self.write("RF0")
+        sleep(0.5)
+
