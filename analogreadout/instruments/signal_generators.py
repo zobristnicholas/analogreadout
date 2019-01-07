@@ -57,15 +57,11 @@ class AnritsuABC:
         print("Model Number:", identity[1])
         print("Serial Number:", identity[2])
         print("System Version:", identity[3])
-        self.power = power
-        self.set_power(power)
 
     def initialize(self, frequency, power=None):
         self.turn_off_output()
         self.reset()
         self.set_frequency(frequency)
-        if power is None:
-            power = self.power
         self.set_power(power)
         self.turn_on_output()
         sleep(1)
