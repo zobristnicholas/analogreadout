@@ -6,8 +6,7 @@ from analogreadout.instruments.sensors import NotASensor
 def get_instrument(dictionary):
     location = dictionary['location']
     instrument = dictionary['instrument']
-    library = importlib.import_module("MKID_Readout.instruments." +
-                                      location)
+    library = importlib.import_module("analogreadout.instruments." + location)
     return getattr(library, instrument)(*dictionary['arguments'])
 
 
@@ -57,14 +56,14 @@ class DAQ:
         if self.primary_amplifier is None:
             self.primary_amplifier = NotASensor("Primary Amplifier")
 
-    def initialize(self, application, frequency, power, dac_atten=0, adc_atten=0):
+    def initialize(self, application, frequency, power=None, dac_atten=0, adc_atten=0):
         """
         Initialize all of the instruments according to their initialize methods
         Args:
             application: type of acquisition to send to the ADC defining the data taking
                          application (string)
             frequency: frequency to output from the DAC [GHz]
-            power: power to output from the DAC [dBm]
+            power: power to output from the DAC [dBm] (optional, defaluts to config value)
             dac_atten: DAC attenuation [dB] (optional, defaults to 0)
             adc_atten: ADC attenuation [dB] (optional, defaults to 0)
         """

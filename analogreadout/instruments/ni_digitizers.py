@@ -32,6 +32,7 @@ class NI6120:
         self.trigger_factor = 20
 
     def initialize(self, application, channels=None, sample_rate=None, num_samples=None):
+        self.reset()        
         if application == "pulse_data":
             # collect more data than requested at a time to trigger on pulses
             if num_samples is None:
