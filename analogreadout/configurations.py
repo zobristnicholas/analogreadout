@@ -13,10 +13,11 @@ def jpl_config():
     sig_gen_address = "GPIB0::4::INSTR"
     atten_address = "GPIB0::18::INSTR"
 
-    dac_config = {"dac": {"instrument": "AnritsuMG3692B", "arguments": (sig_gen_address,),
-                          "location": "signal_generators", "power": 14},
+    dac_config = {"dac": {"instrument": "AnritsuMG3692B",
+                          "arguments": (sig_gen_address, 14),
+                          "location": "signal_generators"},
                   "attenuator": {"instrument": "Weinschel83102042F",
-                                 "arguments": (atten_address,),
+                                 "arguments": (atten_address, [1, 2]),
                                  "location": "attenuators"}}
     adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (scope_address,),
                           "location": "oscilloscopes"}}
@@ -27,18 +28,20 @@ def jpl_config():
 
 
 def ucsb_config():
-    dac_address = "GPIB0::7::INSTR"
-    sig_gen_addresses = ["GPIB0::4::INSTR", "GPIB0::5::INSTR"]
-    sig_gen_types = ["AnritsuMG3692B", "AnritsuMG3692B"]
-    atten_address = "GPIB0::18::INSTR"
+    sig_gen_addresses = ['USB0::0x0B5B::0xFFE0::084510::INSTR',  # bottom (ch 1)
+                         'USB0::0x0B5B::0xFFE0::084511::INSTR']  # top (ch 2)
+    sig_gen_types = ["AnritsuMG37022A", "AnritsuMG37022A"]
+    sig_gen_powers = [14, 14]
+    sig_gen_arguments = list(zip(sig_gen_addresses, sig_gen_powers))
+    atten_address = "GPIB2::10::INSTR"
     dac_config = {"dac": {"instrument": "MultipleSignalGenerators",
-                          "arguments": (sig_gen_addresses, sig_gen_types),
-                          "location": "signal_generators", "power": 14},
+                          "arguments": (sig_gen_types, sig_gen_arguments),
+                          "location": "signal_generators"},
                   "attenuator": {"type": "Weinschel83102042F",
-                                 "arguments": (atten_address,)}}
-    adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (dac_address,),
-                          "location": "adcs"}}
+                                 "arguments": (atten_address, [1, 2])}}
+    adc_config = {"adc": {"instrument": "NI6120", "arguments": (),
+                          "location": "ni_digitizers"}}
     sensor_config = {}  # thermometer, primary_amplifier
 
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config}
-    raise NotImplementedError
+    return configuration

@@ -4,7 +4,7 @@ from time import sleep
 
 
 class MultipleSignalGenerators(list):
-    def __init__(self, arguments, classes):
+    def __init__(self, classes, arguments):
         super().__init__()
         # make a list of classes if only one class was given
         if len(classes) != len(arguments) and len(classes) == 1:
@@ -46,7 +46,7 @@ class MultipleSignalGenerators(list):
 
 
 class AnritsuABC:
-    def __init__(self, address):
+    def __init__(self, address, power):
         try:
             resource_manager = visa.ResourceManager()
         except:
@@ -57,11 +57,15 @@ class AnritsuABC:
         print("Model Number:", identity[1])
         print("Serial Number:", identity[2])
         print("System Version:", identity[3])
+        self.power = power
+        self.set_power(power)
 
-    def initialize(self, frequency, power):
+    def initialize(self, frequency, power=None):
         self.turn_off_output()
         self.reset()
         self.set_frequency(frequency)
+        if power is None:
+            power = self.power
         self.set_power(power)
         self.turn_on_output()
         sleep(1)
