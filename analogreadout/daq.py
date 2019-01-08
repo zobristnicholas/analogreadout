@@ -1,4 +1,5 @@
 import importlib
+from datetime import datetime
 from analogreadout.instruments.attenuators import NotAnAttenuator
 from analogreadout.instruments.sensors import NotASensor
 
@@ -95,3 +96,12 @@ class DAQ:
         self.adc.reset()
         self.thermometer.reset()
         self.primary_amplifier.reset()
+        
+    def sensor_states(metadata, daq):
+        """
+        Returns a dictionary of sensor data with a timestamp
+        """
+        state ={"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
+                "thermometer": daq.thermometer.read_value(),
+                "primary_amplifier": daq.primary_amplifier.read_value()}
+        return state

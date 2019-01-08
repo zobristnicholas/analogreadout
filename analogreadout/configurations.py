@@ -22,8 +22,10 @@ def jpl_config():
     adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (scope_address,),
                           "location": "oscilloscopes"}}
     sensor_config = {}  # thermometer, primary_amplifier
+    procedure_config = {"sweep": "Sweep", "noise": "Noise", "pulse": "Pulse"}
 
-    configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config}
+    configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
+                     "procedures": procedure_config}
     return configuration
 
 
@@ -40,6 +42,7 @@ def ucsb_config():
     adc_config = {"adc": {"instrument": "NI6120", "arguments": (),
                           "location": "ni_digitizers"}}
     sensor_config = {}  # thermometer, primary_amplifier
-
-    configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config}
+    procedure_config = {"sweep": "Sweep2", "noise": "Noise2", "pulse": "Pulse2"}
+    configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
+                     "procedures": procedure_config}
     return configuration

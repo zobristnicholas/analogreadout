@@ -1,4 +1,5 @@
 import warnings
+import importlib
 from analogreadout.daq import DAQ
 from analogreadout.configurations import config
 from analogreadout.custom_warnings import ConnectionWarning
@@ -6,6 +7,11 @@ from analogreadout.functions import take_noise_data, do_iq_sweep, take_pulse_dat
 
 DEFAULT_CONFIG = "JPL"
 
+
+def get_procedure(procedure):
+    library = importlib.import_module("analogreadout.procedures")
+    return getattr(library, procedure)
+    
 
 class System:
     """
@@ -20,6 +26,18 @@ class System:
 
         # only display missing instrument warnings once
         warnings.simplefilter("once", ConnectionWarning)
+        
+    def procedure(self, procedure_type):
+        """
+        Return the procedure class of a given type.
+        Args:
+            procedure_type: sweep, noise, or pulse (str)
+        """
+        library = importlib.import_module("analogreadout.procedures")
+        procedure_class = getattr(library, self.config["procedures"][procedure_type])
+        procedure_class.connect_daq(self.daq)
+        return procedure_class
+        
 
     def take_noise_data(self, *args, **kwargs):
         """
