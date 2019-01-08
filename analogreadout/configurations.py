@@ -30,15 +30,16 @@ def jpl_config():
 
 
 def ucsb_config():
-    sig_gen_addresses = ['USB0::0x0B5B::0xFFE0::084510::INSTR',  # bottom (ch 1)
-                         'USB0::0x0B5B::0xFFE0::084511::INSTR']  # top (ch 2)
+    sig_gen_arguments = [('USB0::0x0B5B::0xFFE0::084510::INSTR',),  # bottom (ch 1)
+                         ('USB0::0x0B5B::0xFFE0::084511::INSTR',)]  # top (ch 2)
     sig_gen_types = ["AnritsuMG37022A", "AnritsuMG37022A"]
     atten_address = "GPIB2::10::INSTR"
     dac_config = {"dac": {"instrument": "MultipleSignalGenerators",
-                          "arguments": (sig_gen_types, sig_gen_addresses),
+                          "arguments": (sig_gen_types, sig_gen_arguments),
                           "location": "signal_generators", "power": [14, 14]},
-                  "attenuator": {"type": "Weinschel83102042F",
-                                 "arguments": (atten_address, [1, 2])}}
+                  "attenuator": {"instrument": "Weinschel83102042F",
+                                 "arguments": (atten_address, [1, 2]),
+                                 "location": "attenuators"}}
     adc_config = {"adc": {"instrument": "NI6120", "arguments": (),
                           "location": "ni_digitizers"}}
     sensor_config = {}  # thermometer, primary_amplifier

@@ -46,7 +46,7 @@ class MultipleSignalGenerators(list):
 
 
 class AnritsuABC:
-    def __init__(self, address, power):
+    def __init__(self, address):
         try:
             resource_manager = visa.ResourceManager()
         except:
