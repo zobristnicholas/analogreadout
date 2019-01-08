@@ -1,6 +1,10 @@
 import visa
+import logging
 import numpy as np
 from time import sleep
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class AgilentMSO6054A:
@@ -14,10 +18,8 @@ class AgilentMSO6054A:
             resource_manager = visa.ResourceManager('@py')
         self.session = resource_manager.open_resource(address)
         identity = self._query_ascii_values("*IDN?", 's')
-        print("Connected to:", identity[0])
-        print("Model Number:", identity[1])
-        print("Serial Number:", identity[2])
-        print("System Version:", identity[3])
+        identity = [s.strip() for s in identity]
+        log.info("Connected to: %s %s, s/n: %s, version: %s", *identity)
 
     def initialize(self, application):
         self.reset()

@@ -1,8 +1,12 @@
 import visa
+import logging
 import warnings
 import numpy as np
 from time import sleep
 from analogreadout.custom_warnings import ConnectionWarning
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
     
 class Weinschel83102042F:
@@ -15,10 +19,8 @@ class Weinschel83102042F:
             resource_manager = visa.ResourceManager('@py')
         self.session = resource_manager.open_resource(address)
         identity = self.query_ascii_values("*IDN?", 's')
-        print("Connected to:", identity[0])
-        print("Model Number:", identity[1])
-        print("Serial Number:", identity[2])
-        print("System Version:", identity[3])
+        identity = [s.strip() for s in identity]
+        log.info("Connected to: %s %s, s/n: %s, version: %s", *identity)
         self.channels = channels  # list of chained channels to get more attenuation range
         
     def initialize(self, attenuation):
@@ -52,13 +54,13 @@ class Weinschel83102042F:
                 new_attenuation = min(self.MAX_ATTEN, attenuation - current_attenuation)
                 self._write_attenuation(new_attenuation)
                 current_attenuation += new_attenuation
-        sleep(2)
+        sleep(0.1)
     
     def _write_attenuation(self, attenuation):
-        self.write("ATTN {:d}".format(attenuation))
+        self.write("ATTN {:d}".format(int(attenuation)))
         
     def _write_channel(self, channel):
-        self.write("CHAN {:d}".format(channel))
+        self.write("CHAN {:d}".format(int(channel)))
     
     def write(self, *args, **kwargs):
         self.session.write(*args, **kwargs)
@@ -80,7 +82,7 @@ class Weinschel83102042F:
 
     def reset(self):
         self.write("*RST")
-        sleep(5)
+        sleep(1)
 
 
 class NotAnAttenuator:

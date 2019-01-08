@@ -1,6 +1,8 @@
+import os
 import warnings
 import importlib
 from datetime import datetime
+from pymeasure.experiment import Parameter
 from analogreadout.configurations import config
 from analogreadout.instruments.sensors import NotASensor
 from analogreadout.custom_warnings import ConnectionWarning
@@ -27,7 +29,7 @@ class DAQ:
     Data Acquisition System:
     Class for holding all of the instrument objects defined in the configuration
     dictionary. Also holds methods to initialize, close and reset all instruments at once.
-    Data taking methods are take_noise_data(), do_iq_sweep(), and take_pulse_data().    
+    Data taking methods are selected from the run() method.
     """
     def __init__(self, configuration=None):
         # load configuration
@@ -79,21 +81,55 @@ class DAQ:
         # warnings.simplefilter("once", ConnectionWarning)
             
         
-    def procedure(self, procedure_type):
+    def procedure_class(self, procedure_type):
         """
         Return the procedure class of a given type.
         Args:
             procedure_type: sweep, noise, or pulse (str)
         """
         library = importlib.import_module("analogreadout.procedures")
-        procedure_class = getattr(library, self.config["procedures"][procedure_type])
-        procedure_class.connect_daq(self.daq)
-        return procedure_class
+        ProcedureClass = getattr(library, self.config["procedures"][procedure_type])
+        ProcedureClass.connect_daq(self)
+        return ProcedureClass
+    
+    def run(self, procedure_type, **kwargs):
+        """
+        Take data for the given procedure_type. The procedure class is defined in the
+        configuration file.
+        Args:
+        procedure_type: sweep, noise or pulse (str)
+        **kwargs: procedure parameters (set to the defaults if not specified)
+        """
+        # get proceedure class
+        Procedure = self.procedure_class(procedure_type)
+        # overload the default parameter value and set it's value
+        for key, value in kwargs.items():
+            getattr(Procedure, key).default = value
+            getattr(Procedure, key).value = value
+        # check that all parameters have a default
+        for name in dir(Procedure):
+            parameter = getattr(Procedure, name)
+            if isinstance(parameter, Parameter):
+                message = "{} is not an optional parameter. No default is specified"
+                assert parameter.default is not None, message.format(name)
+        # run procedure
+        procedure = Procedure()
+        try:
+            procedure.startup()
+            procedure.execute()
+        finally:
+            procedure.shutdown()
+        # return the saved file name
+        try:
+            file_name = os.path.join(procedure.directory, procedure.file_name())
+        except:
+            file_name = None
+        return file_name   
         
 
     def take_noise_data(self, *args, **kwargs):
         """
-        Take noise data
+        Take noise data.
         Args:
             frequency: frequency [GHz]
             dac_atten: dac attenuation [dB]
@@ -101,8 +137,8 @@ class DAQ:
             directory: folder where data should be saved (string)
             power: dac power [dB] (optional, should be set by configuration)
             adc_atten: adc attenuation [dB] (optional, defaults to 0)
-            sample_rate: sample rate of adc (float, defaults to 2e6 Hz)
-            verbose: print information about the system (bool, defaults to True)
+            sample_rate: sample rate of adc [Hz] (optional, defaults to 2e6)
+            verbose: print information about the system (optional, defaults to True)
         
         Returns:
             file_path: full path where the data was saved
@@ -111,29 +147,10 @@ class DAQ:
             kwargs.update({"power": self.config['dac']['dac']['power']})
         return take_noise_data(self.daq, *args, **kwargs)
 
-    def do_iq_sweep(self, *args, **kwargs):
-        """
-        Take an iq sweep
-        Args:
-            center: center frequency [GHz]
-            span: sweep span [GHz]
-            dac_atten: dac attenuation [dB]
-            n_points: number of points in the sweep (int)
-            directory: folder where data should be saved (string)
-            power: dac power [dB] (optional, should be set by configuration)
-            adc_atten: adc attenuation [dB] (optional, defaults to 0)
-            verbose: print information about the system (bool, defaults to True)
-            
-        Returns:
-            file_path: full path where the data was saved.
-        """
-        if "power" not in kwargs.keys():
-            kwargs.update({"power": self.config['dac']['dac']['power']})
-        return do_iq_sweep(self.daq, *args, **kwargs)
 
     def take_pulse_data(self, *args, **kwargs):
         """
-        Take pulse data
+        Take pulse data.
         Args:
             frequency: frequency [GHz]
             dac_atten: dac attenuation [dB]
@@ -153,7 +170,7 @@ class DAQ:
         
     def initialize(self, application, frequency, power=None, dac_atten=0, adc_atten=0):
         """
-        Initialize all of the instruments according to their initialize methods
+        Initialize all of the instruments according to their initialize methods.
         Args:
             application: type of acquisition to send to the ADC defining the data taking
                          application (string)
@@ -171,7 +188,7 @@ class DAQ:
 
     def close(self):
         """
-        Close all of the instruments according to their close methods
+        Close all of the instruments according to their close methods.
         """
         self.dac_atten.close()
         self.adc_atten.close()
@@ -182,7 +199,7 @@ class DAQ:
 
     def reset(self):
         """
-        Reset all of the instruments according to their reset methods
+        Reset all of the instruments according to their reset methods.
         """
         self.dac_atten.reset()
         self.adc_atten.reset()
@@ -191,9 +208,9 @@ class DAQ:
         self.thermometer.reset()
         self.primary_amplifier.reset()
         
-    def sensor_states(self, metadata):
+    def system_state(self):
         """
-        Returns a dictionary of sensor data with a timestamp
+        Returns a dictionary defining the system state with a timestamp
         """
         state ={"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
                 "thermometer": self.thermometer.read_value(),

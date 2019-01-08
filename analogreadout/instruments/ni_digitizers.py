@@ -1,4 +1,5 @@
 import PyDAQmx
+import logging
 import numpy as np
 from time import sleep
 from scipy.ndimage.filters import median_filter
@@ -9,6 +10,9 @@ DAQmx_Val_Cfg_Default = PyDAQmx.DAQmxConstants.DAQmx_Val_Cfg_Default
 DAQmx_Val_Volts = PyDAQmx.DAQmxConstants.DAQmx_Val_Volts
 DAQmx_Val_DC = PyDAQmx.DAQmxConstants.DAQmx_Val_DC
 DAQmx_Val_GroupByChannel = PyDAQmx.DAQmxConstants.DAQmx_Val_GroupByChannel
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class NI6120:
@@ -30,6 +34,7 @@ class NI6120:
         self.samples_per_channel = 2e4
         # collect more data than requested at a time to trigger on pulses
         self.trigger_factor = 20
+        log.info("Connected to: National Instruments PCI-6120")
 
     def initialize(self, application, channels=None, sample_rate=None, num_samples=None):
         self.reset()        
@@ -105,7 +110,7 @@ class NI6120:
     def take_iq_point(self):
         channel_data = self._acquire_readings()
         # combine I and Q signals
-        data = np.zeros(int(len(channel_data) / 2))
+        data = np.zeros(int(len(channel_data) / 2), dtype=np.complex)
         for index in range(int(len(channel_data) / 2)):
             data[index] = (np.median(channel_data[2 * index]) +
                            1j * np.median(channel_data[2 * index + 1]))
@@ -116,6 +121,7 @@ class NI6120:
         Resets the digitizer.
         """
         error = PyDAQmx.DAQmxResetDevice(self.device)
+        self.session = PyDAQmx.Task()
         return error
 
     def _find_sigma_levels(self, search_length=50):

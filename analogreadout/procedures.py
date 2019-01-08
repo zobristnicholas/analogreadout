@@ -44,7 +44,7 @@ class Sweep(SweepBaseProcedure):
             self.daq.dac.set_frequency(self.freqs[:, index])
             self.z[:, index] = self.daq.adc.take_iq_point()
             data = self.get_sweep_data(index)
-            self.emit_results(data)
+            self.emit('results', data)
             self.emit('progress', 50 + index / self.n_points * 100 / 2)
             log.debug("taking data index: %d", index)
 
@@ -69,7 +69,7 @@ class Sweep(SweepBaseProcedure):
                 log.info("Parameter {}: {}".format(name, value))
                 self.metadata['parameters'][name] = value
         # save some data from the current state of the daq sensors
-        self.metadata.update(self.daq.sensor_states())
+        self.metadata.update(self.daq.system_state())
         # save the file name
         self.metadata["file_name"] = self.file_name()
 

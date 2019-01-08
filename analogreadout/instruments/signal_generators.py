@@ -1,6 +1,10 @@
 import visa
+import logging
 import numpy as np
 from time import sleep
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class MultipleSignalGenerators(list):
@@ -46,6 +50,9 @@ class MultipleSignalGenerators(list):
 
 
 class AnritsuABC:
+    FREQUENCY_SWITCH = 0.06
+    POWER_SWITCH = 0.04
+    OUTPUT_SWITCH = 0.05
     def __init__(self, address):
         try:
             resource_manager = visa.ResourceManager()
@@ -53,10 +60,8 @@ class AnritsuABC:
             resource_manager = visa.ResourceManager('@py')
         self.session = resource_manager.open_resource(address)
         identity = self.query_ascii_values("*IDN?", 's')
-        print("Connected to:", identity[0])
-        print("Model Number:", identity[1])
-        print("Serial Number:", identity[2])
-        print("System Version:", identity[3])
+        identity = [s.strip() for s in identity]
+        log.info("Connected to: %s %s, s/n: %s, version: %s", *identity)
 
     def initialize(self, frequency, power=None):
         self.turn_off_output()
@@ -64,7 +69,6 @@ class AnritsuABC:
         self.set_frequency(frequency)
         self.set_power(power)
         self.turn_on_output()
-        sleep(1)
         
     def set_frequency(self, frequency):
         if isinstance(frequency, (list, tuple, np.ndarray)):
@@ -72,7 +76,7 @@ class AnritsuABC:
                 raise ValueError("can only set one frequency at a time")
             frequency = frequency[0]
         self.write("F1 {} GH;".format(frequency))
-        sleep(0.05)
+        sleep(self.FREQUENCY_SWITCH)
 
     def set_power(self, power):
         if isinstance(power, (list, tuple, np.ndarray)):
@@ -80,7 +84,7 @@ class AnritsuABC:
                 raise ValueError("can only set one power at a time")
             power = power[0]
         self.write("L1 {} DM;".format(power))
-        sleep(0.5)
+        sleep(self.POWER_SWITCH)
         
     def write(self, *args, **kwargs):
         self.session.write(*args, **kwargs)
@@ -113,33 +117,38 @@ class AnritsuABC:
 
 
 class AnritsuMG37022A(AnritsuABC):
+    FREQUENCY_SWITCH = 0.001
+    POWER_SWITCH = 0.04
+    OUTPUT_SWITCH = 0.05
     def turn_on_output(self):
         self.write("OUTPut: ON")
-        sleep(0.5)
+        sleep(self.OUTPUT_SWITCH)
 
     def turn_off_output(self):
         self.write("OUTPut: OFF")
-        sleep(0.5)
+        sleep(self.OUTPUT_SWITCH)
 
 
 class AnritsuMG3692B(AnritsuABC):
+    FREQUENCY_SWITCH = 0.06
+    POWER_SWITCH = 0.04
+    OUTPUT_SWITCH = 0.05
     def set_increment(self, frequency):
         if isinstance(frequency, (list, tuple, np.ndarray)):
             if len(frequency) != 1:
                 raise ValueError("can only set one frequency at a time")
             frequency = frequency[0]
         self.write("F1 SYZ {:f} GH".format(frequency))
-        sleep(0.5)
     
     def increment(self):
         self.write("F1 UP")
-        sleep(0.1)
+        sleep(self.FREQUENCY_SWITCH)
 
     def turn_on_output(self):
         self.write("RF1")
-        sleep(0.5)
+        sleep(self.OUTPUT_SWITCH)
 
     def turn_off_output(self):
         self.write("RF0")
-        sleep(0.5)
+        sleep(self.OUTPUT_SWITCH)
 
