@@ -18,10 +18,12 @@ class Sweep(SweepBaseProcedure):
     freqs = None
     z = None
     z_offset = None
+    calibration = None
     metadata = {"parameters": {}}
 
     def execute(self):
-        # TODO: take calibration data
+        # calibrate the data (if possible)
+        self.calibrate()
         # initialize the system in the right mode
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
@@ -118,7 +120,7 @@ class Sweep(SweepBaseProcedure):
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
         np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset,
-                 metadata=self.metadata)
+                 calibration=self.calibration, metadata=self.metadata)
                  
     def load(self, file_path):
         """
@@ -137,6 +139,9 @@ class Sweep(SweepBaseProcedure):
         return results
         
     def startup(self):
+        pass
+    
+    def calibrate(self):
         pass
     
     def get_sweep_data(self, index):
@@ -158,7 +163,7 @@ class Sweep1(Sweep):
     DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'i_psd', 'q_psd', 'f_psd']
     
     def startup(self):
-        log.info("Starting procedure:")
+        log.info("Starting procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span / 2,
                                                self.frequency + self.span / 2,
@@ -197,7 +202,7 @@ class Sweep2(Sweep):
                     'f2', 'i2', 'q2', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd', 'f_psd']
 
     def startup(self):
-        log.info("Starting procedure:")
+        log.info("Starting procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.vstack(
             (np.linspace(self.frequency1 - self.span1 / 2,
@@ -207,6 +212,8 @@ class Sweep2(Sweep):
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex)
+        self.calibration = np.zeros((2, 3, self.daq.adc.samples_per_channel),
+                                    dtype=np.complex)
         # save parameter metadata
         self.update_metadata()
         # TODO: set temperature and aux field here and wait for stabilization
@@ -228,3 +235,33 @@ class Sweep2(Sweep):
         records["f2"] = npz_file["freqs"][1, :]
         records["i2"] = npz_file["z"][1, :].real - npz_file["z_offset"][1, :].real
         records["q2"] = npz_file["z"][1, :].imag - npz_file["z_offset"][1, :].imag
+        
+    def calibrate(self):
+        # initialize in noise data mode
+        adc_atten = max(0, self.total_atten - self.attenuation)
+        self.daq.initialize("noise_data", self.freqs[:, 0],
+                            dac_atten=self.attenuation, adc_atten=adc_atten)
+        # channel 1 lowest frequency
+        self.daq.dac.set_frequency([self.freqs[0, 0], self.freqs[0, 0] + 1e-5])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[0, 0, :] = data[0] + 1j * data[1]
+        # channel 2 lowest frequency
+        self.daq.dac.set_frequency([self.freqs[1, 0] + 1e-5, self.freqs[1, 0]])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[1, 0, :] = data[2] + 1j * data[3]
+        # channel 1 middle frequency
+        self.daq.dac.set_frequency([self.frequency1, self.frequency1 + 1e-5])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[0, 1, :] = data[0] + 1j * data[1]
+        # channel 2 middle frequency
+        self.daq.dac.set_frequency([self.frequency2 + 1e-5, self.frequency2])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[1, 1, :] = data[2] + 1j * data[3]
+        # channel 1 highest frequency
+        self.daq.dac.set_frequency([self.freqs[0, -1], self.freqs[0, -1] + 1e-5])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[0, 2, :] = data[0] + 1j * data[1]
+        # channel 2 highest frequency
+        self.daq.dac.set_frequency([self.freqs[1, -1] + 1e-5, self.freqs[1, -1]])
+        data = self.daq.adc.take_noise_data(1)
+        self.calibration[1, 2, :] = data[2] + 1j * data[3]

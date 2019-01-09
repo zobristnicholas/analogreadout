@@ -12,6 +12,8 @@ class AgilentMSO6054A:
         # recast channels as integers
         channels = [int(channel) for channel in channels]
         self.channels = channels
+        # set default number of samples per channel
+        self.samples_per_channel = 1e3
         try:
             resource_manager = visa.ResourceManager()
         except Exception:
@@ -62,8 +64,8 @@ class AgilentMSO6054A:
         self._autoscale_trigger(search_length=500, n_sigma=5)
         self._set_sweep_mode("normal")
 
-        data_I = np.zeros((n_triggers, 1000))
-        data_Q = np.zeros((n_triggers, 1000))
+        data_I = np.zeros((n_triggers, self.samples_per_channel))
+        data_Q = np.zeros((n_triggers, self.samples_per_channel))
         for index in range(n_triggers):
             I_voltages, Q_voltages = self._get_data()
             data_I[index, :] = I_voltages
@@ -77,8 +79,8 @@ class AgilentMSO6054A:
         # remove trigger from the data range
         self._set_trigger(0, 5, 1)
 
-        data_I = np.zeros((n_triggers, 1000))
-        data_Q = np.zeros((n_triggers, 1000))
+        data_I = np.zeros((n_triggers, self.samples_per_channel))
+        data_Q = np.zeros((n_triggers, self.samples_per_channel))
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * .001  # no longer than a millisecond
             sleep(rand_time)
