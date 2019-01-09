@@ -33,39 +33,28 @@ class NI6120:
         # set default number of samples per channel
         self.samples_per_channel = 2e4
         # collect more data than requested at a time to trigger on pulses
-        self.trigger_factor = 20
         log.info("Connected to: National Instruments PCI-6120")
 
-    def initialize(self, application, channels=None, sample_rate=None, num_samples=None):
-        self.reset()        
-        if application == "pulse_data":
-            # collect more data than requested at a time to trigger on pulses
-            if num_samples is None:
-                num_samples = self.trigger_factor * self.samples_per_channel
-            else:
-                num_samples = self.trigger_factor * num_samples
-        elif application == "noise_data":
-            pass
-        elif application == "sweep_data":
-            pass
+    def initialize(self, channels=None, sample_rate=None, n_samples=None):
+        self.reset()
         self._create_channels(channels=channels)
         self._set_channel_coupling()
         self._disable_aa_filter()
-        self._configure_sampling(sample_rate=sample_rate, num_samples=num_samples)
+        self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples)
 
         
     def take_noise_data(self, n_triggers):
         data = []
-        n_channels = len(self.channels)
-        for _ in range(n_channels):
-            data.append(np.zeros((n_triggers, int(self.samples_per_channel))))
+        n_channels = int(len(self.channels) / 2)
+        data = np.zeros((n_channels, n_triggers, int(self.samples_per_channel)),
+                        dtype=np.complex)
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
             sleep(rand_time)
             sample = self._acquire_readings()
-            for channel_index in range(n_channels):
-                data[channel_index][index, :] = sample[channel_index, :]
-        return tuple(data)
+            for ind in range(n_channels):
+                data[ind, index, :] = sample[2 * ind, :] + 1j * sample[2 * ind + 1, :]
+        return data
         
     def take_pulse_data(self, n_triggers, n_sigma=4):
         # initialize data array
@@ -150,6 +139,8 @@ class NI6120:
         """
         if channels is not None:
             self.channels = channels
+        message = "must have an equal number of I and Q channels"
+        assert len(self.channels) % 2 == 0, message
         error = False
         for channel in self.channels:
             error = self.session.CreateAIVoltageChan(channel, "", DAQmx_Val_Cfg_Default,
@@ -158,15 +149,15 @@ class NI6120:
                                                      DAQmx_Val_Volts, None) or error
         return error
 
-    def _configure_sampling(self, sample_rate=None, num_samples=None):
+    def _configure_sampling(self, sample_rate=None, n_samples=None):
         """
         Configures the sampling.
         """
         if sample_rate is not None:
             self.sample_rate = sample_rate
 
-        if num_samples is not None:
-            self.samples_per_channel = num_samples
+        if n_samples is not None:
+            self.samples_per_channel = n_samples
 
         error = self.session.CfgSampClkTiming("", np.int(self.sample_rate),
                                               DAQmx_Val_Rising, DAQmx_Val_FiniteSamps,

@@ -23,10 +23,18 @@ class AgilentMSO6054A:
         identity = [s.strip() for s in identity]
         log.info("Connected to: %s %s, s/n: %s, version: %s", *identity)
 
-    def initialize(self, application):
+    def initialize(self, channels=None, sample_rate=None, n_samples=None):
         self.reset()
         self._write("*CLS")
-
+        # reset channels
+        if channels is not None:
+            channels = [int(channel) for channel in channels]
+            self.channels = channels
+        message = "must have an equal number of I and Q channels"
+        assert len(self.channels) % 2 == 0, message
+        # check n_samples parameter (included only for consistency with other adcs)
+        if n_samples is not None:
+            assert n_samples == 1000, "This device only supports 1000 sample outputs."
         # set each channel at 50 Ohm impedance
         self._write(":CHANnel{}:IMPedance FIFTy".format(self.channels[0]))
         self._write(":CHANnel{}:IMPedance FIFTy".format(self.channels[1]))
@@ -40,22 +48,10 @@ class AgilentMSO6054A:
         # set full scale vertical range in volts for each channel
         self._set_range(0, 5)
         self._set_range(1, 5)
-
-        if application == "pulse_data":
-            assert len(self.channels) == 2, \
-                "Only two channels allowed, one for I and another for Q"
-            # set the time range (10xs the time per division)
-            self._write(":TIMebase:RANGe 500e-6")
-
-        elif application == "noise_data":
-            # set the time range (10xs the time per division)
-            self._write(":TIMebase:RANGe 500e-6")
-
-        elif application == "sweep_data":
-            # set the time range (10xs the time per division)
-            self._write(":TIMebase:RANGe 1e-3")
-            # remove trigger from the data range
-            self._set_trigger(0, 5, 1)
+        # move trigger out of the way
+        self._set_trigger(0, 5, 1)
+        # set the window size
+        self._write(":TIMebase:RANGe {:f}".format(self.samples_per_channel * sample_rate))
         sleep(1)
 
     def take_pulse_data(self, n_triggers):
@@ -79,16 +75,14 @@ class AgilentMSO6054A:
         # remove trigger from the data range
         self._set_trigger(0, 5, 1)
 
-        data_I = np.zeros((n_triggers, self.samples_per_channel))
-        data_Q = np.zeros((n_triggers, self.samples_per_channel))
+        data = np.zeros((n_triggers, self.samples_per_channel), dtype=np.complex)
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * .001  # no longer than a millisecond
             sleep(rand_time)
-            I_voltages, Q_voltages = self._get_data()
-            data_I[index, :] = I_voltages
-            data_Q[index, :] = Q_voltages
+            i_voltages, q_voltages = self._get_data()
+            data[index, :] = i_voltages + 1j * q_voltages
 
-        return data_I, data_Q
+        return data
 
     def take_iq_point(self):
         # find appropriate range and offset for the scope

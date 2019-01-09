@@ -162,7 +162,8 @@ class DAQ:
             kwargs.update({"power": self.config['dac']['dac']['power']})
         return take_pulse_data(self.daq, *args, **kwargs)
         
-    def initialize(self, application, frequency, power=None, dac_atten=0, adc_atten=0):
+    def initialize(self, frequency, power=None, dac_atten=0, adc_atten=0,
+                   sample_rate=None, n_samples=None, channels=None):
         """
         Initialize all of the instruments according to their initialize methods.
         Args:
@@ -172,11 +173,17 @@ class DAQ:
             power: power to output from the DAC [dBm] (optional, defaluts to config value)
             dac_atten: DAC attenuation [dB] (optional, defaults to 0)
             adc_atten: ADC attenuation [dB] (optional, defaults to 0)
+            sample_rate: ADC sample rate [Hz] (optional, default depends on ADC)
+                The sample rate may be variable or only able to take one value depending
+                on the hardware.
+            n_samples: samples per ADC acquisition (optional, default depends on ADC)
+            channels: ADC channels to take data with (optional, default depends on ADC)
         """
         self.dac_atten.initialize(dac_atten)
         self.adc_atten.initialize(adc_atten)
         self.dac.initialize(frequency, power)
-        self.adc.initialize(application)
+        self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples,
+                            channels=channels)
         self.thermometer.initialize()
         self.primary_amplifier.initialize()
 
