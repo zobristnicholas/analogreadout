@@ -1,11 +1,9 @@
 import os
-import warnings
 import importlib
 from datetime import datetime
 from pymeasure.experiment import Parameter
 from analogreadout.configurations import config
 from analogreadout.instruments.sensors import NotASensor
-from analogreadout.custom_warnings import ConnectionWarning
 from analogreadout.instruments.attenuators import NotAnAttenuator
 from analogreadout.functions import take_noise_data, do_iq_sweep, take_pulse_data
 
@@ -77,10 +75,6 @@ class DAQ:
         if self.primary_amplifier is None:
             self.primary_amplifier = NotASensor("Primary Amplifier")
             
-        # only display missing instrument warnings once
-        # warnings.simplefilter("once", ConnectionWarning)
-            
-        
     def procedure_class(self, procedure_type):
         """
         Return the procedure class of a given type.

@@ -3,7 +3,6 @@ import logging
 import warnings
 import numpy as np
 from time import sleep
-from analogreadout.custom_warnings import ConnectionWarning
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -88,26 +87,17 @@ class Weinschel83102042F:
 class NotAnAttenuator:
     def __init__(self, name=''):
         self.name = name
-        self.warn("connection")
+        message = "{} attenuator does not exist and will be ignored"
+        log.warning(message.format(self.name))
 
     def initialize(self, attenuation):
-        if attenuation != 0:
-            self.warn("set")
+        pass
 
     def set_attenuation(self, attenuation):
-        if attenuation != 0:
-            self.warn("set")
+        pass
 
     def close(self):
         pass
 
     def reset(self):
         pass
-
-    def warn(self, warning_type):
-        if warning_type == "connection":
-            message = "{} attenuator does not exist and will be ignored"
-            warnings.warn(message.format(self.name), ConnectionWarning)
-        elif warning_type == "set":
-            message = "{} attenuator does not exist so it can not be set"
-            warnings.warn(message.format(self.name), UserWarning)

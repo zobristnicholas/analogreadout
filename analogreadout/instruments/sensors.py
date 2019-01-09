@@ -1,12 +1,14 @@
-import warnings
+import logging
 import numpy as np
-from analogreadout.custom_warnings import ConnectionWarning
 
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 class NotASensor:
     def __init__(self, name=''):
         self.name = name
-        self.warn()
+        message = "{} sensor is not connected and was not initialized"
+        log.warning(message.format(self.name))
 
     def initialize(self):
         pass
@@ -20,7 +22,3 @@ class NotASensor:
 
     def reset(self):
         pass
-
-    def warn(self):
-        message = "{} sensor is not connected and was not initialized"
-        warnings.warn(message.format(self.name), ConnectionWarning)
