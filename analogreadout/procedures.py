@@ -34,6 +34,9 @@ class Sweep(SweepBaseProcedure):
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
             self.send('progress', index / self.n_points * 100 / 2)
             log.debug("taking zero index: %d", index)
+            if self.stop():
+                log.warning("Caught the stop flag in the procedure")
+                return
 
         # initialize the system in the right mode
         adc_atten = max(0, self.total_atten - self.attenuation)
@@ -48,6 +51,9 @@ class Sweep(SweepBaseProcedure):
             self.send('results', data)
             self.send('progress', 50 + index / self.n_points * 100 / 2)
             log.debug("taking data index: %d", index)
+            if self.stop():
+                log.warning("Caught the stop flag in the procedure")
+                return
 
         if self.take_noise:
             file_name = self.file_name().split("_")
@@ -59,8 +65,7 @@ class Sweep(SweepBaseProcedure):
                 except ValueError:
                     pass
             file_name_kwargs = {"prefix": "noise", "numbers": numbers, "time": time}
-            self.daq.run("noise", file_name_kwargs,
-                         directory=r"C:\Documents and Settings\kids\nzobrist",
+            self.daq.run("noise", file_name_kwargs, directory=self.directory,
                          attenuation=self.attenuation)
                  
     def shutdown(self):
@@ -69,32 +74,18 @@ class Sweep(SweepBaseProcedure):
         
     def make_procedure_from_file(self, npz_file):
         # load in the data
-        parameter_dict = npz_file['parameters'].item()
+        metadata = npz_file['metadata'].item()
+        parameter_dict = metadata['parameters']
         # make a procedure object with the right parameters
         procedure = self.__class__()
         for name, value in parameter_dict.items():
             setattr(procedure, name, value)
         procedure.refresh_parameters()  # Enforce update of meta data
         return procedure
-        
-    def make_structured_array(self, npz_file):
-        # find the max size of the data (assumes largest axis of all numpy arrays)
-        sizes = []
-        for _, value in npz_file.items():
-            if hasattr(value, "shape") and value.shape:
-                sizes.append(np.max(value.shape))
-            else:
-                sizes.append(np.max(np.array([value]).shape))
-        size = max(sizes)
-        # create empty numpy structured array
-        dt = [tuple(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))]
-        records = np.empty((size,), dtype=dt)
-        records.fill(np.nan)
-        return records
-        
+          
     def make_results(self, records, procedure):
         # make a temporary file for the gui data
-        file_path = tempfile.mktemp()
+        file_path = os.path.abspath(tempfile.mktemp(suffix=".txt"))
         # make the mkidplotter Results class
         results = Results(procedure, file_path)
         log.info("Loading dataset into the temporary file %s", file_path)
@@ -103,6 +94,7 @@ class Sweep(SweepBaseProcedure):
             for index in range(records.shape[0]):
                 temporary_file.write(results.format(records[index]))
                 temporary_file.write(os.linesep)
+        return results
                 
     def save(self):
         file_path = os.path.join(self.directory, self.file_name())
@@ -117,10 +109,9 @@ class Sweep(SweepBaseProcedure):
         # load in the data
         npz_file = np.load(file_path)
         # create empty numpy structured array
-        records = self.make_structured_array(npz_file)
         procedure = self.make_procedure_from_file(npz_file)
-        # fill array withh data
-        self.fill_record_array(records, npz_file)
+        # make array with data
+        records = self.make_record_array(npz_file)
         # TODO: add noise to record array
         # make a temporary file for the gui data
         results = self.make_results(records, procedure)
@@ -135,8 +126,7 @@ class Sweep(SweepBaseProcedure):
     def get_sweep_data(self, index):
         raise NotImplementedError
         
-    @staticmethod
-    def fill_record_array(records, npz_file):
+    def make_record_array(self, npz_file):
         raise NotImplementedError
 
 
@@ -171,11 +161,17 @@ class Sweep1(Sweep):
                 "q": self.z[0, index].imag - self.z_offset[0, index].imag}
         return data
 
-    @staticmethod
-    def fill_record_array(records, npz_file):
+    def make_record_array(self, npz_file):
+        # create empty numpy structured array
+        size =npz_file["freqs"][0, :].size
+        dt = list(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))
+        records = np.empty((size,), dtype=dt)
+        records.fill(np.nan)
+        # fill array
         records["f"] = npz_file["freqs"][0, :] 
         records["i"] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
         records["q"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
+        return records
         
 
 class Sweep2(Sweep):
@@ -219,14 +215,20 @@ class Sweep2(Sweep):
                 "q2": self.z[1, index].imag - self.z_offset[1, index].imag}
         return data
     
-    @staticmethod
-    def fill_record_array(records, npz_file):
+    def make_record_array(self, npz_file):
+        # create empty numpy structured array
+        size =npz_file["freqs"][0, :].size
+        dt = list(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))
+        records = np.empty((size,), dtype=dt)
+        records.fill(np.nan)
+        # fill array
         records["f1"] = npz_file["freqs"][0, :] 
         records["i1"] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
         records["q1"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
         records["f2"] = npz_file["freqs"][1, :]
         records["i2"] = npz_file["z"][1, :].real - npz_file["z_offset"][1, :].real
         records["q2"] = npz_file["z"][1, :].imag - npz_file["z_offset"][1, :].imag
+        return records
         
     def calibrate(self):
         # initialize in noise data mode
@@ -269,6 +271,9 @@ class Noise(MKIDProcedure):
             # take the data
             data = self.daq.adc.take_noise_data(self.n_integrations)
             self.noise[:, index, :, :] = data   
+            if self.stop():
+                log.warning("Caught the stop flag in the procedure")
+                return
             
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
