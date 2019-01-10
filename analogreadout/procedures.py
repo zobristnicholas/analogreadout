@@ -186,8 +186,9 @@ class Sweep2(Sweep):
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
     # gui data columns
-    DATA_COLUMNS = ['f1', 'i1', 'q1', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd',
-                    'f2', 'i2', 'q2', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd', 'f_psd']
+    DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd',
+                    'f2', 'i2', 'q2', 't2', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd',
+                    'f_psd']
 
     def startup(self):
         log.info("Starting sweep procedure")
@@ -207,12 +208,21 @@ class Sweep2(Sweep):
         # TODO: set temperature and aux field here and wait for stabilization
 
     def get_sweep_data(self, index):
+        dB0 = 10 * np.log10(1e-3 / 50)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset[0, index])) - dB0
+            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset[1, index])) - dB0
+        t1 = np.nan if np.isinf(t1) else t1
+        t2 = np.nan if np.isinf(t2) else t2    
         data = {"f1": self.freqs[0, index],
                 "i1": self.z[0, index].real - self.z_offset[0, index].real,
                 "q1": self.z[0, index].imag - self.z_offset[0, index].imag,
+                "t1": t1,
                 "f2": self.freqs[1, index],
                 "i2": self.z[1, index].real - self.z_offset[1, index].real,
-                "q2": self.z[1, index].imag - self.z_offset[1, index].imag}
+                "q2": self.z[1, index].imag - self.z_offset[1, index].imag,
+                "t2": t2}
         return data
     
     def make_record_array(self, npz_file):
@@ -222,12 +232,24 @@ class Sweep2(Sweep):
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
         # fill array
+        dB0 = 10 * np.log10(1e-3 / 50)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            t1 = 20 * np.log10(np.abs(
+                npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - dB0
+            t2 = 20 * np.log10(np.abs(
+                npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - dB0
+        t1[np.isinf(t1)] = np.nan
+        t2[np.isinf(t2)] = np.nan
+                    
         records["f1"] = npz_file["freqs"][0, :] 
         records["i1"] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
         records["q1"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
+        records["t1"] = t1
         records["f2"] = npz_file["freqs"][1, :]
         records["i2"] = npz_file["z"][1, :].real - npz_file["z_offset"][1, :].real
         records["q2"] = npz_file["z"][1, :].imag - npz_file["z_offset"][1, :].imag
+        records["t2"] = t2
         return records
         
     def calibrate(self):
