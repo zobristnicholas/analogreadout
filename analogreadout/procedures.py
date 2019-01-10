@@ -32,7 +32,7 @@ class Sweep(SweepBaseProcedure):
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
-            self.emit('progress', index / self.n_points * 100 / 2)
+            self.send('progress', index / self.n_points * 100 / 2)
             log.debug("taking zero index: %d", index)
 
         # initialize the system in the right mode
@@ -45,13 +45,22 @@ class Sweep(SweepBaseProcedure):
             self.daq.dac.set_frequency(self.freqs[:, index])
             self.z[:, index] = self.daq.adc.take_iq_point()
             data = self.get_sweep_data(index)
-            self.emit('results', data)
-            self.emit('progress', 50 + index / self.n_points * 100 / 2)
+            self.send('results', data)
+            self.send('progress', 50 + index / self.n_points * 100 / 2)
             log.debug("taking data index: %d", index)
 
         if self.take_noise:
-            # TODO: make this work
-            self.daq.run("noise", directory=r"C:\Documents and Settings\kids\nzobrist",
+            file_name = self.file_name().split("_")
+            time = "_".join(file_name[-2:]).split(".")[0]
+            numbers = []
+            for number in file_name[:-2]:
+                try:
+                    numbers.append(int(number))
+                except ValueError:
+                    pass
+            file_name_kwargs = {"prefix": "noise", "numbers": numbers, "time": time}
+            self.daq.run("noise", file_name_kwargs,
+                         directory=r"C:\Documents and Settings\kids\nzobrist",
                          attenuation=self.attenuation)
                  
     def shutdown(self):
@@ -266,7 +275,9 @@ class Noise(MKIDProcedure):
         log.info("Finished noise procedure")
         
     def save(self):
-        pass
+        file_path = os.path.join(self.directory, self.file_name())
+        log.info("Saving data to %s", file_path)
+        np.savez(file_path, freqs=self.freqs, noise=self.noise, metadata=self.metadata)
 
   
 class Noise2(Noise):
