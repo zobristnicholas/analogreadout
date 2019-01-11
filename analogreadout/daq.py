@@ -86,13 +86,14 @@ class DAQ:
         ProcedureClass.connect_daq(self)
         return ProcedureClass
     
-    def run(self, procedure_type, file_name_kwargs={}, **kwargs):
+    def run(self, procedure_type, file_name_kwargs={}, stop=None, **kwargs):
         """
         Take data for the given procedure_type. The procedure class is defined in the
         configuration file.
         Args:
         procedure_type: sweep, noise or pulse (str)
         file_name_kwargs: kwargs to pass to procedure.file_name() after instantiation
+        stop: method to monkey patch into procedure.stop  (used in chained procedures)
         **kwargs: procedure parameters (set to the defaults if not specified)
         """
         # get proceedure class
@@ -109,6 +110,8 @@ class DAQ:
                 assert parameter.default is not None, message.format(name)
         # run procedure
         procedure = Procedure()
+        if stop is not None:
+            procedure.stop = stop
         if file_name_kwargs.get("prefix", None) is None:
             file_name_kwargs["prefix"] = procedure_type
         procedure.file_name(**file_name_kwargs)

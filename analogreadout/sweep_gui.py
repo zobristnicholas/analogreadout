@@ -19,8 +19,8 @@ def sweep_window():
                    ('loop', 'bias point'), None, ('I', 'Q'))
     widgets_list = (SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget,
                     SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
-    names_list = ('Channel 1: IQ', 'Channel 1: Magnitude', 'Channel 1: Noise',
-                  'Channel 2: IQ', 'Channel 2: Magnitude', 'Channel 2: Noise')
+    names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
+                  'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
     
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,

@@ -3,10 +3,10 @@ import logging
 import tempfile
 import warnings
 import numpy as np
-from mkidplotter import (SweepBaseProcedure, MKIDProcedure)
+from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput)
 from mkidplotter.gui.parameters import DirectoryParameter
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
-                                  Results)
+                                  VectorParameter, Results)
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -27,7 +27,8 @@ class Sweep(SweepBaseProcedure):
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
             self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf, 
-                                sample_rate=self.sample_rate, n_samples=self.n_samples)                 
+                                sample_rate=self.sample_rate * 1e6,
+                                n_samples=self.n_samples)                 
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -41,7 +42,7 @@ class Sweep(SweepBaseProcedure):
         # initialize the system in the right mode
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation,
-                            adc_atten=adc_atten, sample_rate=self.sample_rate,
+                            adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
                             n_samples=self.n_samples)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
@@ -55,7 +56,7 @@ class Sweep(SweepBaseProcedure):
                 log.warning("Caught the stop flag in the procedure")
                 return
 
-        if self.take_noise:
+        if self.noise[0]:
             file_name = self.file_name().split("_")
             time = "_".join(file_name[-2:]).split(".")[0]
             numbers = []
@@ -65,8 +66,8 @@ class Sweep(SweepBaseProcedure):
                 except ValueError:
                     pass
             file_name_kwargs = {"prefix": "noise", "numbers": numbers, "time": time}
-            self.daq.run("noise", file_name_kwargs, directory=self.directory,
-                         attenuation=self.attenuation)
+            noise_kwargs = self.noise_kwargs()
+            self.daq.run("noise", file_name_kwargs, stop=self.stop, **noise_kwargs)
                  
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
@@ -128,17 +129,21 @@ class Sweep(SweepBaseProcedure):
         
     def make_record_array(self, npz_file):
         raise NotImplementedError
+        
+    def noise_kwargs(self):
+        raise NotImplementedError
 
 
 class Sweep1(Sweep):
     # parameters
     frequency = FloatParameter("Center Frequency", units="GHz", default=4.0)
     span = FloatParameter("Span", units="MHz", default=2)
-    sample_rate = FloatParameter("Sample Rate", units="Hz", default=2e6)
+    sample_rate = FloatParameter("Sample Rate", units="MHz", default=2)
     n_samples = IntegerParameter("Samples to Average", default=1000)
-    take_noise = BooleanParameter("Take Noise Data", default=True)
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
+                            ui_class=NoiseInput)
     # gui data columns
     DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'i_psd', 'q_psd', 'f_psd']
     
@@ -173,6 +178,14 @@ class Sweep1(Sweep):
         records["q"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
         return records
         
+    def noise_kwargs(self):
+        kwargs = {'directory': self.directory,
+                  'attenuation': self.attenuation,
+                  'sample_rate': self.sample_rate,
+                  'total_atten': self.total_atten,
+                  'frequency': self.frequency}
+        return kwargs
+        
 
 class Sweep2(Sweep):
     # parameters
@@ -180,11 +193,13 @@ class Sweep2(Sweep):
     span1 = FloatParameter("Channel 1 Span", units="MHz", default=2)
     frequency2 = FloatParameter("Channel 2 Center Frequency", units="GHz", default=4.0)
     span2 = FloatParameter("Channel 2 Span", units="MHz", default=2)
-    sample_rate = FloatParameter("Sample Rate", units="Hz", default=8e5)
+    sample_rate = FloatParameter("Sample Rate", units="MHz", default=0.8)
     n_samples = IntegerParameter("Samples to Average", default=20000)
-    take_noise = BooleanParameter("Take Noise Data", default=True)
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
+                            ui_class=NoiseInput)
+
     # gui data columns
     DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd',
                     'f2', 'i2', 'q2', 't2', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd',
@@ -252,6 +267,15 @@ class Sweep2(Sweep):
         records["t2"] = t2
         return records
         
+    def noise_kwargs(self):
+        kwargs = {'directory': self.directory,
+                  'attenuation': self.attenuation,
+                  'sample_rate': self.sample_rate,
+                  'total_atten': self.total_atten,
+                  'frequency1': self.frequency1,
+                  'frequency2': self.frequency2}
+        return kwargs
+        
     def calibrate(self):
         # initialize in noise data mode
         adc_atten = max(0, self.total_atten - self.attenuation)
@@ -284,11 +308,11 @@ class Noise(MKIDProcedure):
 
     def execute(self):
         adc_atten = max(0, self.total_atten - self.attenuation)
-        n_samples = int(self.time * self.sample_rate)
+        n_samples = int(self.time * self.sample_rate * 1e6)
         for index, _ in enumerate(self.freqs[0, :]):
             # initialize the system in the right mode
             self.daq.initialize(self.freqs[:, index], dac_atten=self.attenuation,
-                                adc_atten=adc_atten, sample_rate=self.sample_rate,
+                                adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
                                 n_samples=n_samples)
             # take the data
             data = self.daq.adc.take_noise_data(self.n_integrations)
@@ -323,7 +347,7 @@ class Noise2(Noise):
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
         n_noise = 1 + self.off_res  # TODO: update when off_res param is updated
-        n_points = int(self.time * self.sample_rate)
+        n_points = int(self.time * self.sample_rate * 1e6)
         self.freqs = np.zeros((2, n_noise))
         self.freqs[:, 0] = np.array([self.frequency1, self.frequency2])
         # TODO: un-hardcode
