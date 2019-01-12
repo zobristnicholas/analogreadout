@@ -5,7 +5,7 @@ from analogreadout.procedures import Sweep2
 from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget,
                          TransmissionPlotWidget, get_image_icon)
 
-
+# TODO: implement file log
 def sweep_window():
     x_list = (('i1', 'i1_bias'), ('f1',), ('f_psd', 'f_psd'),
               ('i2', 'i2_bias'), ('f2',), ('f_psd', 'f_psd'))
@@ -25,7 +25,7 @@ def sweep_window():
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list,
-                 plot_names=names_list)
+                 plot_names=names_list, log_level="INFO")
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     Sweep2.connect_daq(DAQ("UCSB"))

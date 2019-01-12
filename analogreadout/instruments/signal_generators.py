@@ -52,7 +52,7 @@ class MultipleSignalGenerators(list):
 class AnritsuABC:
     FREQUENCY_SWITCH = 0.06
     POWER_SWITCH = 0.04
-    OUTPUT_SWITCH = 0.05
+    OUTPUT_SWITCH = 0.2
     def __init__(self, address):
         try:
             resource_manager = visa.ResourceManager()

@@ -188,6 +188,8 @@ class DAQ:
         """
         self.dac_atten.initialize(dac_atten)
         self.adc_atten.initialize(adc_atten)
+        if power is None:
+            power = self.config['dac']['dac']['power']
         self.dac.initialize(frequency, power)
         self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples,
                             channels=channels)

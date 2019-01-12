@@ -47,7 +47,7 @@ class NI6120:
         data = []
         n_channels = int(len(self.channels) / 2)
         data = np.zeros((n_channels, n_triggers, int(self.samples_per_channel)),
-                        dtype=np.complex)
+                        dtype=np.complex64)
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
             sleep(rand_time)
@@ -99,10 +99,10 @@ class NI6120:
     def take_iq_point(self):
         channel_data = self._acquire_readings()
         # combine I and Q signals
-        data = np.zeros(int(len(channel_data) / 2), dtype=np.complex)
+        data = np.zeros(int(len(channel_data) / 2), dtype=np.complex64)
         for index in range(int(len(channel_data) / 2)):
-            data[index] = (np.median(channel_data[2 * index]) +
-                           1j * np.median(channel_data[2 * index + 1]))
+            data[index] = (np.mean(channel_data[2 * index]) +
+                           1j * np.mean(channel_data[2 * index + 1]))
         return data
 
     def reset(self):
