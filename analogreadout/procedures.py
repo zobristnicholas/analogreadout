@@ -245,7 +245,7 @@ class Sweep2(Sweep):
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
-        self.calibration = np.zeros((2, 3, self.daq.adc.samples_per_channel),
+        self.calibration = np.zeros((2, 3, self.n_samples),
                                     dtype=np.complex64)
         self.noise_bias = np.zeros(6)
         # save parameter metadata
@@ -283,8 +283,8 @@ class Sweep2(Sweep):
             size2 = freqs[0, :].size
         except FileNotFoundError:
             size2 = 1
-            freqs = np.array([np.nan])
-            psd = np.array([np.nan])
+            freqs = np.zeros((2, size2)) * np.nan
+            psd = np.zeros((2, 1, size2)) * np.nan
 
         # create empty numpy structured array
         size1 = npz_file["freqs"][0, :].size
@@ -377,8 +377,9 @@ class Sweep2(Sweep):
     def calibrate(self):
         # initialize in noise data mode
         adc_atten = max(0, self.total_atten - self.attenuation)
-        self.daq.initialize("noise_data", self.freqs[:, 0],
-                            dac_atten=self.attenuation, adc_atten=adc_atten)
+        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation,
+                            adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
+                            n_samples=self.n_samples)
         # channel 1 lowest frequency
         self.daq.dac.set_frequency([self.freqs[0, 0], self.freqs[0, 0] + 1e-5])
         self.calibration[0, 0, :] = self.daq.adc.take_noise_data(1)[0]
