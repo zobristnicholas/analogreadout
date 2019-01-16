@@ -43,7 +43,7 @@ class DAQ:
         self.adc_atten = None  # adc attenuator
         self.thermometer = None  # device thermometer
         self.primary_amplifier = None  # HEMT amplifier or para-amp 
-
+        # TODO: add LS 370AC from https://github.com/p3trus/slave
         # set the instruments specified in the configuration
         for key, value in self.config['dac'].items():
             if key == "dac":

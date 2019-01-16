@@ -17,6 +17,7 @@ STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
 class Sweep(SweepBaseProcedure):
+    # TODO: reverse sweep direction bool parameter
     # outputs
     freqs = None
     z = None
@@ -90,6 +91,7 @@ class Sweep(SweepBaseProcedure):
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
         log.info("Finished sweep procedure")
+        # TODO: add timestamp
         
     def make_procedure_from_file(self, npz_file):
         # load in the data
