@@ -5,10 +5,10 @@ import warnings
 import numpy as np
 from time import sleep
 import scipy.signal as sig
-from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput)
+from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results)
 from mkidplotter.gui.parameters import DirectoryParameter
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
-                                  VectorParameter, Results)
+                                  VectorParameter)
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
