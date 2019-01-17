@@ -304,7 +304,6 @@ class Sweep2(Sweep):
                 npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - dB0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
-        # TODO: bug reading in noise psd from file (high frequencies look weird)
         records["f1"][:size1] = npz_file["freqs"][0, :] 
         records["i1"][:size1] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
         records["q1"][:size1] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
