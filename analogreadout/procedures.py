@@ -17,7 +17,6 @@ STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
 class Sweep(SweepBaseProcedure):
-    # TODO: reverse sweep direction bool parameter
     # outputs
     freqs = None
     z = None
@@ -91,7 +90,6 @@ class Sweep(SweepBaseProcedure):
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
         log.info("Finished sweep procedure")
-        # TODO: add timestamp
         
     def make_procedure_from_file(self, npz_file):
         # load in the data
@@ -134,7 +132,6 @@ class Sweep(SweepBaseProcedure):
         procedure = self.make_procedure_from_file(npz_file)
         # make array with data
         records = self.make_record_array(npz_file)
-        # TODO: add noise to record array
         # make a temporary file for the gui data
         results = self.make_results(records, procedure)
         return results
@@ -171,6 +168,7 @@ class Sweep1(Sweep):
     n_samples = IntegerParameter("Samples to Average", default=1000)
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
+    reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
     noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
                             ui_class=NoiseInput)
     # gui data columns
@@ -183,6 +181,8 @@ class Sweep1(Sweep):
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span * 1e-3 / 2,
                                                self.frequency + self.span * 1e-3 / 2,
                                                self.n_points))
+        if self.reverse_sweep:
+            self.freqs = self.freqs[:, ::-1]                                       
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz        
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
@@ -227,6 +227,7 @@ class Sweep2(Sweep):
     n_samples = IntegerParameter("Samples to Average", default=20000)
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
+    reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
     noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
                             ui_class=NoiseInput)
 
@@ -244,6 +245,8 @@ class Sweep2(Sweep):
                          self.frequency1 + self.span1 * 1e-3 / 2, self.n_points),
              np.linspace(self.frequency2 - self.span2 * 1e-3 / 2,
                          self.frequency2 + self.span2 * 1e-3 / 2, self.n_points)))
+        if self.reverse_sweep:
+            self.freqs = self.freqs[:, ::-1]
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
