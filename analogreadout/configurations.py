@@ -42,7 +42,12 @@ def ucsb_config():
                                  "location": "attenuators"}}
     adc_config = {"adc": {"instrument": "NI6120", "arguments": (),
                           "location": "ni_digitizers"}}
-    sensor_config = {}  # thermometer, primary_amplifier
+    thermometer_address = 'visa://blackfridge.physics.ucsb.edu/ASRL1::INSTR'
+    channel = 6
+    scanner = '3716'
+    sensor_config = {"thermometer": {"instrument": "LakeShore370AC",
+                                     "arguments": (thermometer_address, channel, scanner),
+                                      "location": "resistance_bridges"}}  
     procedure_config = {"sweep": "Sweep2", "noise": "Noise2", "pulse": "Pulse2"}
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
                      "procedures": procedure_config}

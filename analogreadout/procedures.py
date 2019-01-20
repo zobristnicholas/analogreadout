@@ -3,7 +3,6 @@ import logging
 import tempfile
 import warnings
 import numpy as np
-from time import sleep
 import scipy.signal as sig
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results)
 from mkidplotter.gui.parameters import DirectoryParameter
@@ -22,8 +21,11 @@ class Sweep(SweepBaseProcedure):
     z = None
     z_offset = None
     calibration = None
+    noise_bias = None
 
     def execute(self):
+        # TODO: set_field when there's an instrument hooked up
+        self.daq.thermometer.set_temperature(self.temperature)
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
@@ -33,7 +35,6 @@ class Sweep(SweepBaseProcedure):
             self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf, 
                                 sample_rate=self.sample_rate * 1e6,
                                 n_samples=self.n_samples)  
-        sleep(1)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -50,7 +51,6 @@ class Sweep(SweepBaseProcedure):
         self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation,
                             adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
                             n_samples=self.n_samples)
-        sleep(1)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -89,6 +89,7 @@ class Sweep(SweepBaseProcedure):
                  
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
+        self.cleanup()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
         
     def make_procedure_from_file(self, npz_file):
@@ -121,6 +122,13 @@ class Sweep(SweepBaseProcedure):
         np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset,
                  calibration=self.calibration, noise_bias=self.noise_bias,
                  metadata=self.metadata)
+                 
+    def clean_up(self):
+        self.freqs = None
+        self.z = None
+        self.z_offset = None
+        self.calibration = None
+        self.noise_bias = None
                  
     def load(self, file_path):
         """
@@ -188,7 +196,6 @@ class Sweep1(Sweep):
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
         # save parameter metadata
         self.update_metadata()
-        # TODO: set temperature and aux field here and wait for stabilization
     
     def get_sweep_data(self, index):
         data = {"f1": self.freqs[0, index],
@@ -255,7 +262,6 @@ class Sweep2(Sweep):
         self.noise_bias = np.zeros(6)
         # save parameter metadata
         self.update_metadata()
-        # TODO: set temperature and aux field here and wait for stabilization
 
     def get_sweep_data(self, index):
         dB0 = 10 * np.log10(1e-3 / 50)
@@ -346,7 +352,8 @@ class Sweep2(Sweep):
                       1j * sig.savgol_filter(z.imag, filter_win_length, 1))
         velocity = np.abs(np.diff(z_filtered))
         indices = np.argmax(velocity, axis=-1)
-        frequencies = self.freqs[range(z.shape[0]), indices]
+        df = self.freqs[:, 1] - self.freqs[:, 0]
+        frequencies = self.freqs[range(z.shape[0]), indices] + df / 2
         
         self.noise_bias = np.array([frequencies[0],
                                     np.mean(z[0, indices[0]: indices[0] + 2].real),
@@ -408,6 +415,8 @@ class Noise(MKIDProcedure):
     # outputs
     freqs = None
     noise = None
+    f_psd = None
+    psd = None
 
     def execute(self):
         adc_atten = max(0, self.total_atten - self.attenuation)
@@ -427,6 +436,7 @@ class Noise(MKIDProcedure):
             
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
+        self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished noise procedure")
         
     def save(self):
@@ -434,6 +444,12 @@ class Noise(MKIDProcedure):
         log.info("Saving data to %s", file_path)
         np.savez(file_path, freqs=self.freqs, noise=self.noise, f_psd=self.f_psd,
                  psd=self.psd, metadata=self.metadata)
+                 
+    def clean_up(self):
+        self.freqs = None
+        self.noise = None
+        self.f_psd = None
+        self.psd = None
                  
     def compute_psd(self):
         # n_points such that 100 Hz is the minimum possible freq

@@ -60,8 +60,8 @@ class AnritsuABC:
             resource_manager = visa.ResourceManager('@py')
         self.session = resource_manager.open_resource(address)
         identity = self.query_ascii_values("*IDN?", 's')
-        identity = [s.strip() for s in identity]
-        log.info("Connected to: %s %s, s/n: %s, version: %s", *identity)
+        self.identity = [s.strip() for s in identity]
+        log.info("Connected to: %s %s, s/n: %s, version: %s", *self.identity)
 
     def initialize(self, frequency, power=None):
         self.turn_off_output()
@@ -104,6 +104,8 @@ class AnritsuABC:
     def close(self):
         self.turn_off_output()
         self.session.close()
+        message = "The visa session for {} {}, s/n: {} has been closed"
+        log.info(message.format(*self.identity[:3]))
 
     def reset(self):
         self.write("*RST")

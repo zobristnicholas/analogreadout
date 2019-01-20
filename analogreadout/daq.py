@@ -1,11 +1,19 @@
 import os
+import visa
+import logging
 import importlib
+import numpy as np
+from time import sleep
 from datetime import datetime
 from pymeasure.experiment import Parameter
 from analogreadout.configurations import config
 from analogreadout.instruments.sensors import NotASensor
 from analogreadout.instruments.attenuators import NotAnAttenuator
+from analogreadout.instruments.resistance_bridges import NotAThermometer
 from analogreadout.functions import take_noise_data, do_iq_sweep, take_pulse_data
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 DEFAULT_CONFIG = "JPL"
 
@@ -19,7 +27,21 @@ def get_instrument(dictionary):
     location = dictionary['location']
     instrument = dictionary['instrument']
     library = importlib.import_module("analogreadout.instruments." + location)
-    return getattr(library, instrument)(*dictionary['arguments'])
+    try:
+        return getattr(library, instrument)(*dictionary['arguments'])
+    except visa.VisaIOError as error:
+        busy = (error.error_code == visa.constants.VI_ERROR_MACHINE_NAVAIL or
+                error.error_code == visa.constants.StatusCode.error_resource_busy)
+        if busy:
+            message = ("The '{}' instrument is busy. If another program is using it, try "
+                       "closing it or moving the instrument to a non-serial connection")
+            log.error(message.format(instrument))
+        else:
+            message = "Error loading the '{}' instrument: " + error
+            log.error(message.format(instrument))
+    except:
+        message = "Error loading the '{}' instrument: " + error
+        log.error(message.format(instrument))
     
 
 class DAQ:
@@ -35,34 +57,31 @@ class DAQ:
             self.config = config(DEFAULT_CONFIG)
         else:
             self.config = config(configuration)
-        
         # initialize all instruments as None
-        self.dac = None  # digital to analog converter
-        self.adc = None  # analog to digital converter
-        self.dac_atten = None  # dac attenuator
-        self.adc_atten = None  # adc attenuator
-        self.thermometer = None  # device thermometer
-        self.primary_amplifier = None  # HEMT amplifier or para-amp 
-        # TODO: add LS 370AC from https://github.com/p3trus/slave
+        self.instrument_names = ('dac_atten',  # digital to analog converter
+                                 'adc_atten',  # analog to digital converter
+                                 'dac',  # dac attenuator
+                                 'adc',  # adc attenuator
+                                 'thermometer',  # device thermometer
+                                 'primary_amplifier')  # first amplifier in the chain
+        for name in self.instrument_names:
+            setattr(self, name, None)
         # set the instruments specified in the configuration
         for key, value in self.config['dac'].items():
             if key == "dac":
                 self.dac = get_instrument(value)
             elif key == "attenuator":
                 self.dac_atten = get_instrument(value)
-
         for key, value in self.config['adc'].items():
             if key == "adc":
                 self.adc = get_instrument(value)
             elif key == "attenuator":
                 self.adc_atten = get_instrument(value)
-
         for key, value in self.config['sensors'].items():
             if key == "thermometer":
                 self.thermometer = get_instrument(value)
             elif key == "primary_amplifier":
                 self.primary_amplifier = get_instrument(value)
-                
         # if the instrument wasn't initialized set it to a dummy NotAnInstrument class
         if self.adc is None or self.dac is None:
             raise ValueError("configuration must specify an adc and dac")
@@ -71,10 +90,13 @@ class DAQ:
         if self.adc_atten is None:
             self.adc_atten = NotAnAttenuator("ADC")
         if self.thermometer is None:
-            self.thermometer = NotASensor("Thermometer")
+            self.thermometer = NotAThermometer()
         if self.primary_amplifier is None:
             self.primary_amplifier = NotASensor("Primary Amplifier")
+        # set a flag that tracks if the all the instruments have been closed
+        self.closed = False
             
+        
     def procedure_class(self, procedure_type):
         """
         Return the procedure class of a given type.
@@ -195,34 +217,63 @@ class DAQ:
                             channels=channels)
         self.thermometer.initialize()
         self.primary_amplifier.initialize()
+        sleep(1)
 
     def close(self):
         """
         Close all of the instruments according to their close methods.
         """
-        self.dac_atten.close()
-        self.adc_atten.close()
-        self.dac.close()
-        self.adc.close()
-        self.thermometer.close()
-        self.primary_amplifier.close()
+        if self.closed:
+            log.debug("The DAQ is already closed")
+            return
+        problem = False
+        for name in self.instrument_names:
+            instrument = getattr(self, name)
+            try:
+                instrument.close()
+            except (AttributeError, visa.InvalidSession):
+                pass  # ignore if close() doesn't exist or the resource is already closed
+            except Exception as error:
+                problem = True
+                message = "The '{}' instrument was unable to close: "
+                log.warning(message.format(instrument.__class__.__name__) + error)
+        if problem:
+            log.warning("There was a problem shutting down the DAQ")
+        else:
+            self.closed = True
+            log.info("The DAQ was properly shut down")
+        
 
     def reset(self):
         """
         Reset all of the instruments according to their reset methods.
         """
-        self.dac_atten.reset()
-        self.adc_atten.reset()
-        self.dac.reset()
-        self.adc.reset()
-        self.thermometer.reset()
-        self.primary_amplifier.reset()
+        for name in self.instrument_names:
+            instrument = getattr(self, name)
+            try:
+                instrument.reset()
+            except AttributeError:
+                pass
+            except Exception as error:
+                message = "The '{}' instrument was unable to reset: "
+                log.warning(message.format(instrument.__class__.__name__) + error)
         
     def system_state(self):
         """
         Returns a dictionary defining the system state with a timestamp
         """
+        temperatures = []
+        resistances = []
+        for _ in range(10):
+            temperatures.append(self.thermometer.temperature)
+            resistances.append(self.thermometer.resistance)
+            sleep(self.thermometer.WAIT_MEASURE)
+        
+        thermometer = {'channel': self.thermometer.channel,
+                       'temperature': (np.mean(temperatures), np.std(temperatures)),
+                       'resistance': (np.mean(resistances), np.std(resistances))}
+            
         state ={"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
-                "thermometer": self.thermometer.read_value(),
+                "thermometer": thermometer,
                 "primary_amplifier": self.primary_amplifier.read_value()}
         return state
