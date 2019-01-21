@@ -1,15 +1,17 @@
-import PyDAQmx
 import logging
 import numpy as np
 from time import sleep
 from scipy.ndimage.filters import median_filter
-
-DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising
-DAQmx_Val_FiniteSamps = PyDAQmx.DAQmxConstants.DAQmx_Val_FiniteSamps
-DAQmx_Val_Cfg_Default = PyDAQmx.DAQmxConstants.DAQmx_Val_Cfg_Default
-DAQmx_Val_Volts = PyDAQmx.DAQmxConstants.DAQmx_Val_Volts
-DAQmx_Val_DC = PyDAQmx.DAQmxConstants.DAQmx_Val_DC
-DAQmx_Val_GroupByChannel = PyDAQmx.DAQmxConstants.DAQmx_Val_GroupByChannel
+try:
+    import PyDAQmx
+    DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising
+    DAQmx_Val_FiniteSamps = PyDAQmx.DAQmxConstants.DAQmx_Val_FiniteSamps
+    DAQmx_Val_Cfg_Default = PyDAQmx.DAQmxConstants.DAQmx_Val_Cfg_Default
+    DAQmx_Val_Volts = PyDAQmx.DAQmxConstants.DAQmx_Val_Volts
+    DAQmx_Val_DC = PyDAQmx.DAQmxConstants.DAQmx_Val_DC
+    DAQmx_Val_GroupByChannel = PyDAQmx.DAQmxConstants.DAQmx_Val_GroupByChannel
+except NotImplementedError:
+    pass  # allow for import if PyDAQmx is not configured
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())

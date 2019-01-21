@@ -10,5 +10,7 @@ setup(name='analogreadout',
       install_requires=["pyvisa",
                         "PyDAQmx",
                         "pymeasure",
-                        "numpy"],
+                        "numpy",
+                        "scipy",
+                        "slave"],
       zip_safe=False)

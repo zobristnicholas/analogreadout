@@ -37,10 +37,10 @@ def get_instrument(dictionary):
                        "closing it or moving the instrument to a non-serial connection")
             log.error(message.format(instrument))
         else:
-            message = "Error loading the '{}' instrument: " + error
+            message = "Error loading the '{}' instrument: " + str(error)
             log.error(message.format(instrument))
-    except:
-        message = "Error loading the '{}' instrument: " + error
+    except Exception as error:
+        message = "Error loading the '{}' instrument: " + str(error)
         log.error(message.format(instrument))
     
 
