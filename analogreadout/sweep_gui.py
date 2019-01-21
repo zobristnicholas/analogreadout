@@ -1,6 +1,8 @@
+import os
 import re
 import sys
 import logging
+from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
 from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
@@ -8,18 +10,20 @@ from analogreadout.procedures import Sweep2
 from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget,
                          TransmissionPlotWidget, get_image_icon)
 
-# TODO: implement JPL/UCSB configuration switching
-
-
 def setup_logging():
     log = logging.getLogger()
     directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
+    if not os.path.isdir(directory):
+        os.mkdir(directory)
     file_name = datetime.now().strftime("sweep_%y%m%d.log")
     file_path = os.path.join(directory, file_name)
     handler = TimedRotatingFileHandler(file_path, when="midnight")
-    handler.setLevel("INFO")
     handler.suffix = "%Y%m%d"
     handler.extMatch = re.compile(r"^\d{8}$")
+    handler.setLevel("INFO")
+    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)',
+                                   datefmt='%I:%M:%S %p')
+    handler.setFormatter(log_format)
     log.addHandler(handler)
     return log
 
@@ -51,6 +55,7 @@ def sweep_window():
 
 
 if __name__ == '__main__':
+    # TODO: implement JPL/UCSB configuration switching
     setup_logging()
     app = QtGui.QApplication(sys.argv)
     app.setWindowIcon(get_image_icon("loop.png"))
