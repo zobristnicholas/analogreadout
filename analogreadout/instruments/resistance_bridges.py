@@ -23,7 +23,10 @@ class LakeShore370AC(LS370):
         super().__init__(transport, scanner=scanner)
         identity = self.identification
         self.identity = [s.strip() for s in identity]
-        log.info("Connected to: %s %s, s/n: %s, version: %s", *self.identity)        
+        log.info("Connected to: %s %s, s/n: %s, version: %s", *self.identity)   
+        
+    def initialize(self):
+        pass
             
     @property
     def temperature(self):
@@ -58,6 +61,9 @@ class NotAThermometer(LS370):
         self.channel = np.nan
         self.temperature = np.nan
         self.resistance = np.nan
+        
+    def initialize(self):
+        passs
         
     def set_temperature(self, temperature):
         pass
