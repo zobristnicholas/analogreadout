@@ -95,7 +95,6 @@ class DAQ:
             self.primary_amplifier = NotASensor("Primary Amplifier")
         # set a flag that tracks if the all the instruments have been closed
         self.closed = False
-            
         
     def procedure_class(self, procedure_type):
         """
@@ -104,11 +103,11 @@ class DAQ:
             procedure_type: sweep, noise, or pulse (str)
         """
         library = importlib.import_module("analogreadout.procedures")
-        ProcedureClass = getattr(library, self.config["procedures"][procedure_type])
-        ProcedureClass.connect_daq(self)
-        return ProcedureClass
+        procedure_class = getattr(library, self.config["procedures"][procedure_type])
+        procedure_class.connect_daq(self)
+        return procedure_class
     
-    def run(self, procedure_type, file_name_kwargs={}, stop=None, **kwargs):
+    def run(self, procedure_type, file_name_kwargs=None, stop=None, emit=None, **kwargs):
         """
         Take data for the given procedure_type. The procedure class is defined in the
         configuration file.
@@ -116,24 +115,29 @@ class DAQ:
         procedure_type: sweep, noise or pulse (str)
         file_name_kwargs: kwargs to pass to procedure.file_name() after instantiation
         stop: method to monkey patch into procedure.stop  (used in chained procedures)
+        emit: method to monkey patch into procedure.emit (used if sending data to worker)
         **kwargs: procedure parameters (set to the defaults if not specified)
         """
-        # get proceedure class
-        Procedure = self.procedure_class(procedure_type)
+        if file_name_kwargs is None:
+            file_name_kwargs = {}
+        # get procedure class
+        procedure = self.procedure_class(procedure_type)
         # overload the default parameter value and set it's value
         for key, value in kwargs.items():
-            getattr(Procedure, key).default = value
-            getattr(Procedure, key).value = value
+            getattr(procedure, key).default = value
+            getattr(procedure, key).value = value
         # check that all parameters have a default
-        for name in dir(Procedure):
-            parameter = getattr(Procedure, name)
+        for name in dir(procedure):
+            parameter = getattr(procedure, name)
             if isinstance(parameter, Parameter):
                 message = "{} is not an optional parameter. No default is specified"
                 assert parameter.default is not None, message.format(name)
         # run procedure
-        procedure = Procedure()
+        procedure = procedure()
         if stop is not None:
             procedure.stop = stop
+        if emit is not None:
+            procedure.emit = emit
         if file_name_kwargs.get("prefix", None) is None:
             file_name_kwargs["prefix"] = procedure_type
         procedure.file_name(**file_name_kwargs)
@@ -145,10 +149,9 @@ class DAQ:
         # return the saved file name
         try:
             file_name = os.path.join(procedure.directory, procedure.file_name())
-        except:
+        except AttributeError:
             file_name = None
         return file_name   
-        
 
     def take_noise_data(self, *args, **kwargs):
         """
@@ -169,7 +172,6 @@ class DAQ:
         if "power" not in kwargs.keys():
             kwargs.update({"power": self.config['dac']['dac']['power']})
         return take_noise_data(self.daq, *args, **kwargs)
-
 
     def take_pulse_data(self, *args, **kwargs):
         """
@@ -196,8 +198,6 @@ class DAQ:
         """
         Initialize all of the instruments according to their initialize methods.
         Args:
-            application: type of acquisition to send to the ADC defining the data taking
-                         application (string)
             frequency: frequency to output from the DAC [GHz]
             power: power to output from the DAC [dBm] (optional, defaluts to config value)
             dac_atten: DAC attenuation [dB] (optional, defaults to 0)
@@ -242,7 +242,6 @@ class DAQ:
         else:
             self.closed = True
             log.info("The DAQ was properly shut down")
-        
 
     def reset(self):
         """
@@ -273,7 +272,7 @@ class DAQ:
                        'temperature': (np.mean(temperatures), np.std(temperatures)),
                        'resistance': (np.mean(resistances), np.std(resistances))}
             
-        state ={"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
-                "thermometer": thermometer,
-                "primary_amplifier": self.primary_amplifier.read_value()}
+        state = {"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
+                 "thermometer": thermometer,
+                 "primary_amplifier": self.primary_amplifier.read_value()}
         return state

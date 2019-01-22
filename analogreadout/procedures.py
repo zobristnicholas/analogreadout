@@ -41,7 +41,7 @@ class Sweep(SweepBaseProcedure):
             if index == 0:
                 self.daq.adc.take_iq_point()  # first data point is sometimes garbage
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
-            self.send('progress', index / self.n_points * 100 / 2)
+            self.emit('progress', index / self.n_points * 100 / 2)
             log.debug("taking zero index: %d", index)
             if self.stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -56,8 +56,8 @@ class Sweep(SweepBaseProcedure):
             self.daq.dac.set_frequency(self.freqs[:, index])
             self.z[:, index] = self.daq.adc.take_iq_point()
             data = self.get_sweep_data(index)
-            self.send('results', data)
-            self.send('progress', 50 + index / self.n_points * 100 / 2)
+            self.emit('results', data)
+            self.emit('progress', 50 + index / self.n_points * 100 / 2)
             log.debug("taking data index: %d", index)
             if self.stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -77,15 +77,10 @@ class Sweep(SweepBaseProcedure):
             # get noise kwargs
             noise_kwargs = self.noise_kwargs()
             # run noise procedure
-            file_path = self.daq.run("noise", file_name_kwargs, stop=self.stop,
-                                     **noise_kwargs)
+            self.daq.run("noise", file_name_kwargs, stop=self.stop, emit=self.emit,
+                         **noise_kwargs)
             # compute psds
-            freqs, i_psd, q_psd = self.get_psd(file_path)
-            self.send("results", {"f_psd": freqs[0, :],
-                                  "i1_psd": i_psd[0, 0, :],
-                                  "q1_psd": q_psd[0, 0, :],
-                                  "i2_psd": i_psd[1, 0, :],
-                                  "q2_psd": q_psd[1, 0, :]})
+            # TODO: patch emit method, don't load from file (worker won't overload emit)
                  
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
@@ -361,7 +356,7 @@ class Sweep2(Sweep):
                                     frequencies[1],
                                     np.mean(z[1, indices[1]: indices[1] + 2].real),
                                     np.mean(z[1, indices[1]: indices[1] + 2].imag)])
-        self.send("results", {'f1_bias': frequencies[0],
+        self.emit("results", {'f1_bias': frequencies[0],
                               't1_bias': 20 * np.log10(np.abs(self.noise_bias[1] +
                                                               1j * self.noise_bias[2])),
                               'i1_bias': self.noise_bias[1],
@@ -433,6 +428,8 @@ class Noise(MKIDProcedure):
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
         self.compute_psd()
+        data = self.get_noise_data()
+        self.emit('results', data)
             
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
@@ -468,7 +465,10 @@ class Noise(MKIDProcedure):
         # save in array
         self.psd = i_psd + 1j * q_psd
 
-  
+    def get_noise_data(self):
+        raise NotImplementedError
+
+
 class Noise2(Noise):
     directory = DirectoryParameter("Data Directory")
     attenuation = FloatParameter("DAC Attenuation", units="dB")
@@ -498,3 +498,11 @@ class Noise2(Noise):
         self.psd = np.zeros((2, n_noise, n_fft), dtype=np.complex64)
         self.f_psd = np.array([fft_freq, fft_freq])
         self.update_metadata()
+
+    def get_noise_data(self):
+        data =  {"f_psd": self.freqs[0, :],
+                 "i1_psd": self.psd[0, 0, :].imag,
+                 "q1_psd": self.psd[0, 0, :].real,
+                 "i2_psd": self.psd[1, 0, :].real,
+                 "q2_psd": self.psd[1, 0, :].imag}
+        return data
