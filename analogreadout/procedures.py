@@ -4,8 +4,8 @@ import tempfile
 import warnings
 import numpy as np
 import scipy.signal as sig
-from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results)
-from mkidplotter.gui.parameters import DirectoryParameter
+from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
+                         DirectoryParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
 
