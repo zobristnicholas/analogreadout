@@ -43,7 +43,7 @@ class Sweep(SweepBaseProcedure):
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
             self.emit('progress', index / self.n_points * 100 / 2)
             log.debug("taking zero index: %d", index)
-            if self.stop():
+            if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
         # initialize the system in the right mode
@@ -59,7 +59,7 @@ class Sweep(SweepBaseProcedure):
             self.emit('results', data)
             self.emit('progress', 50 + index / self.n_points * 100 / 2)
             log.debug("taking data index: %d", index)
-            if self.stop():
+            if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
         # take noise data
@@ -77,8 +77,8 @@ class Sweep(SweepBaseProcedure):
             # get noise kwargs
             noise_kwargs = self.noise_kwargs()
             # run noise procedure
-            self.daq.run("noise", file_name_kwargs, stop=self.stop, emit=self.emit,
-                         **noise_kwargs)
+            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop,
+                         emit=self.emit, **noise_kwargs)
             # compute psds
             # TODO: patch emit method, don't load from file (worker won't overload emit)
                  
@@ -424,7 +424,7 @@ class Noise(MKIDProcedure):
             # take the data
             data = self.daq.adc.take_noise_data(self.n_integrations)
             self.noise[:, index, :, :] = data   
-            if self.stop():
+            if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
         self.compute_psd()
