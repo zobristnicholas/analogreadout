@@ -273,7 +273,6 @@ class DAQ:
                        'temperature': (np.mean(temperatures), np.std(temperatures)),
                        'resistance': (np.mean(resistances), np.std(resistances))}
             
-        state = {"timestamp": datetime.now().strftime('%Y%m%d_%H%M%S'),
-                 "thermometer": thermometer,
-                 "primary_amplifier": self.primary_amplifier.read_value()}
+        state = {datetime.now().strftime('%Y%m%d_%H%M%S'):
+                     {"thermometer": thermometer, "primary_amplifier": self.primary_amplifier.read_value()}}
         return state
