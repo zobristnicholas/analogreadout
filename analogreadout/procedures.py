@@ -23,9 +23,19 @@ class Sweep(SweepBaseProcedure):
     calibration = None
     noise_bias = None
 
+    sample_rate = FloatParameter("Sample Rate", units="MHz", default=0.8)
+    n_samples = IntegerParameter("Samples to Average", default=20000)
+    n_points = IntegerParameter("Number of Points", default=500)
+    total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
+    reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
+    wait_temp = BooleanParameter("Set Temperature", default=True)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
+                            ui_class=NoiseInput)
+
     def execute(self):
         # TODO: set_field when there's an instrument hooked up
-        self.daq.thermometer.set_temperature(self.temperature)
+        if self.wait_temp:
+            self.daq.thermometer.set_temperature(self.temperature)
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
@@ -62,6 +72,8 @@ class Sweep(SweepBaseProcedure):
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
+        # record system state after data taking
+        self.metadata.update(self.daq.system_state())
         # take noise data
         if self.noise[0]:
             # get file name kwargs from file_name
@@ -79,9 +91,7 @@ class Sweep(SweepBaseProcedure):
             # run noise procedure
             self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop,
                          emit=self.emit, **noise_kwargs)
-            # compute psds
-            # TODO: patch emit method, don't load from file (worker won't overload emit)
-                 
+
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
         self.cleanup()  # delete references to data so that memory isn't hogged
@@ -97,8 +107,9 @@ class Sweep(SweepBaseProcedure):
             setattr(procedure, name, value)
         procedure.refresh_parameters()  # Enforce update of meta data
         return procedure
-          
-    def make_results(self, records, procedure):
+
+    @staticmethod
+    def make_results(records, procedure):
         # make a temporary file for the gui data
         file_path = os.path.abspath(tempfile.mktemp(suffix=".txt"))
         # make the mkidplotter Results class
@@ -164,16 +175,9 @@ class Sweep(SweepBaseProcedure):
 
 
 class Sweep1(Sweep):
-    # parameters
+    # special parameters
     frequency = FloatParameter("Center Frequency", units="GHz", default=4.0)
     span = FloatParameter("Span", units="MHz", default=2)
-    sample_rate = FloatParameter("Sample Rate", units="MHz", default=2)
-    n_samples = IntegerParameter("Samples to Average", default=1000)
-    n_points = IntegerParameter("Number of Points", default=500)
-    total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
-    reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
-                            ui_class=NoiseInput)
     # gui data columns
     DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'f_bias', 't_bias', 'i_psd',
                     'q_psd', 'f_psd']
@@ -200,7 +204,7 @@ class Sweep1(Sweep):
 
     def make_record_array(self, npz_file):
         # create empty numpy structured array
-        size =npz_file["freqs"][0, :].size
+        size = npz_file["freqs"][0, :].size
         dt = list(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
@@ -220,19 +224,11 @@ class Sweep1(Sweep):
         
 
 class Sweep2(Sweep):
-    # parameters
+    # special parameters
     frequency1 = FloatParameter("Ch 1 Frequency", units="GHz", default=4.0)
     span1 = FloatParameter("Ch 1 Span", units="MHz", default=2)
     frequency2 = FloatParameter("Ch 2 Frequency", units="GHz", default=4.0)
     span2 = FloatParameter("Ch 2 Span", units="MHz", default=2)
-    sample_rate = FloatParameter("Sample Rate", units="MHz", default=0.8)
-    n_samples = IntegerParameter("Samples to Average", default=20000)
-    n_points = IntegerParameter("Number of Points", default=500)
-    total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
-    reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
-                            ui_class=NoiseInput)
-
     # gui data columns
     DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'f1_bias', 't1_bias', 'i1_bias', 'q1_bias',
                     'i1_psd', 'q1_psd',
@@ -259,11 +255,11 @@ class Sweep2(Sweep):
         self.update_metadata()
 
     def get_sweep_data(self, index):
-        dB0 = 10 * np.log10(1e-3 / 50)
+        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset[0, index])) - dB0
-            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset[1, index])) - dB0
+            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset[0, index])) - db0
+            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset[1, index])) - db0
         t1 = np.nan if np.isinf(t1) else t1
         t2 = np.nan if np.isinf(t2) else t2    
         data = {"f1": self.freqs[0, index],
@@ -299,13 +295,13 @@ class Sweep2(Sweep):
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
         # fill array
-        dB0 = 10 * np.log10(1e-3 / 50)
+        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             t1 = 20 * np.log10(np.abs(
-                npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - dB0
+                npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - db0
             t2 = 20 * np.log10(np.abs(
-                npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - dB0
+                npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - db0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
         records["f1"][:size1] = npz_file["freqs"][0, :] 
@@ -427,6 +423,9 @@ class Noise(MKIDProcedure):
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
+        # record system state after data taking
+        self.metadata.update(self.daq.system_state())
+        # send the data to the gui
         self.compute_psd()
         data = self.get_noise_data()
         self.emit('results', data)
@@ -493,16 +492,16 @@ class Noise2(Noise):
                               dtype=np.complex64)
                               
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
-        fft_freq = np.fft.rfftfreq(n_points, d= 1 / (self.sample_rate * 1e6))
+        fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
         self.psd = np.zeros((2, n_noise, n_fft), dtype=np.complex64)
         self.f_psd = np.array([fft_freq, fft_freq])
         self.update_metadata()
 
     def get_noise_data(self):
-        data =  {"f_psd": self.freqs[0, :],
-                 "i1_psd": self.psd[0, 0, :].imag,
-                 "q1_psd": self.psd[0, 0, :].real,
-                 "i2_psd": self.psd[1, 0, :].real,
-                 "q2_psd": self.psd[1, 0, :].imag}
+        data = {"f_psd": self.freqs[0, :],
+                "i1_psd": self.psd[0, 0, :].imag,
+                "q1_psd": self.psd[0, 0, :].real,
+                "i2_psd": self.psd[1, 0, :].real,
+                "q2_psd": self.psd[1, 0, :].imag}
         return data
