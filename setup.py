@@ -13,4 +13,5 @@ setup(name='analogreadout',
                         "numpy",
                         "scipy",
                         "slave"],
+      scripts=['sweep_gui.py'],
       zip_safe=False)
