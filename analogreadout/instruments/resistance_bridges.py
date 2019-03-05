@@ -50,7 +50,11 @@ class LakeShore370AC(LS370):
         if max_wait <= 0:
             return
         log.debug("Setting temperature to {} mK".format(temperature))
-        self.set_range(heater_range) 
+        self.set_range(heater_range)
+        if temperature < 50:
+            self.set_bias(2, 'voltage')
+        else:
+            self.set_bias(3, 'voltage')
         previous_temperature = 0
         n_sleep, n_eq = 0, 0
         while n_sleep < max_wait and n_eq < min_wait:
@@ -77,6 +81,37 @@ class LakeShore370AC(LS370):
         
     def set_heater_output(self, level):
         self.heater.manual_output = level
+        sleep(self.WAIT_MEASURE)
+        
+    def set_bias(self, index, mode='voltage'):
+        """
+        Voltage Mode    Current Mode
+        1 2.00 μV       1 1.00 pA
+        2 6.32 μV       2 3.16 pA
+        3 20.0 μV       3 10.0 pA
+        4 63.2 μV       4 31.6 pA
+        5 200 μV        5 100 pA
+        6 632 μV        6 316 pA
+        7 2.00 mV       7 1.00 nA
+        8 6.32 mV       8 3.16 nA
+        *9 20.0 mV      9 10.0 nA
+        *10 63.2 mV     10 31.6 nA
+        *11 200 mV      11 100 nA
+        *12 632 mV      12 316 nA
+                        13 1.00 μA
+                        14 3.16 μA
+                        15 10.0 μA
+                        16 31.6 μA
+                        17 100 μA
+                        18 316 μA
+                        19 1.00 mA
+                        20 3.16 mA
+                        21 10.0 mA
+                        22 31.6 mA
+        """
+        settings = self.input[self.channel - 1].resistance_range
+        r_range = settings[2]
+        self.input[self.channel - 1].resistance_range = mode, index, r_range, True, False
         sleep(self.WAIT_MEASURE)
         
     def close(self):
