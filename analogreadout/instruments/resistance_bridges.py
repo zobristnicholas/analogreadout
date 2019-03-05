@@ -4,7 +4,7 @@ import numpy as np
 from time import sleep
 from slave.types import Integer
 from scipy.interpolate import interp1d
-from slave.lakeshore.ls370 import LS370
+from slave.lakeshore.ls370 import LS370, Heater
 from slave.transport import Visa, SimulatedTransport
 
 log = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ Integer.__convert__ = lambda self, value: int(float(value))
 
 
 class LakeShore370AC(LS370):
-    WAIT_MEASURE = 0.1
+    WAIT_MEASURE = 0.15
 
     def __init__(self, address, channel, scanner=None):
         self.channel = channel
@@ -31,9 +31,12 @@ class LakeShore370AC(LS370):
         temperatures = [-1, 9.1, 11.4, 16.2, 22, 28.2, 34.3, 40.6, 46.7, 53, 59.3, 65.5, 71.5, 78, 84, 90, 96, 104]
         percentages = [0, 0, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 47, 50]
         self.calibration = interp1d(temperatures, percentages)
+        # patch for missing heater        
+        self.heater = Heater(self._transport, self._protocol)
         
     def initialize(self):
-        pass
+        # set channel and turn autoscan off
+        self.input.scan = self.channel, False
             
     @property
     def temperature(self):
@@ -43,30 +46,44 @@ class LakeShore370AC(LS370):
     def resistance(self):
         return self.input[self.channel - 1].resistance
         
-    def set_temperature(self, temperature, heater_range='3.16 mA', max_wait=60):
-        log.info("Setting temperature to {} K".format(temperature))
-        self.heater.range(heater_range)
+    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
+        if max_wait <= 0:
+            return
+        log.debug("Setting temperature to {} mK".format(temperature))
+        self.set_range(heater_range) 
         previous_temperature = 0
-        n_sleep = 0
-        while n_sleep < max_wait:
-            self.heater.manual_output(self.calibration(temperature))
+        n_sleep, n_eq = 0, 0
+        while n_sleep < max_wait and n_eq < min_wait:
+            self.set_heater_output(self.calibration(temperature))
             temperatures = []
             for _ in range(10):
-                temperatures.append(self.temperature)
+                t = self.temperature * 1000
+                temperatures.append(t)
                 sleep(self.WAIT_MEASURE)
             current_temperature = np.mean(temperatures)
-            log.info("Current temperature: {} +/- {} K".format(current_temperature, np.std(temperatures)))
+            log.info("Current temperature: {:.2f} +/- {:.2f} mK".format(current_temperature, np.std(temperatures)))
             deviation = np.abs(previous_temperature - current_temperature)
 
             if deviation < 0.5 * np.std(temperatures):
-                break
+                n_eq += 1
             else:
                 previous_temperature = current_temperature
                 n_sleep += 1
                 sleep(60)
+                
+    def set_range(self, heater_range=5):
+        self.heater.range = Heater.RANGE[heater_range] 
+        sleep(self.WAIT_MEASURE)
+        
+    def set_heater_output(self, level):
+        self.heater.manual_output = level
+        sleep(self.WAIT_MEASURE)
         
     def close(self):
-        self.heater.range('off')
+        try:
+            self.heater.range = Heater.RANGE[0]
+        except NameError:
+            pass
         self._transport._instrument.close()
         message = "The visa session for {} {}, s/n: {} has been closed"
         log.info(message.format(*self.identity[:3]))
@@ -93,7 +110,13 @@ class NotAThermometer(LS370):
     def initialize(self):
         pass
 
-    def set_temperature(self, temperature):
+    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
+        pass
+    
+    def set_range(self, heater_range=5):
+        pass
+        
+    def set_heater_output(self, level):
         pass
         
     def close(self):
