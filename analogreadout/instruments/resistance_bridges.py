@@ -55,7 +55,7 @@ class LakeShore370AC(LS370):
                 temperatures.append(self.temperature)
                 sleep(self.WAIT_MEASURE)
             current_temperature = np.mean(temperatures)
-            log.info("Current temperature: {} K".format(current_temperature))
+            log.info("Current temperature: {} +/- {} K".format(current_temperature, np.std(temperatures)))
             deviation = np.abs(previous_temperature - current_temperature)
 
             if deviation < 0.5 * np.std(temperatures):
