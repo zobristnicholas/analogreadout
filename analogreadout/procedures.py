@@ -28,14 +28,14 @@ class Sweep(SweepBaseProcedure):
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
     reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
-    wait_temp = BooleanParameter("Set Temperature", default=True)
+    wait_temp_min = IntegerParameter("Set Temperature Minimum Wait Time", units="minutes", default=0)
+    wait_temp_max = IntegerParameter("Set Temperature Maximum Wait Time", units="minutes", default=0)
     noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
                             ui_class=NoiseInput)
 
     def execute(self):
         # TODO: set_field when there's an instrument hooked up
-        if self.wait_temp:
-            self.daq.thermometer.set_temperature(self.temperature)
+        self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max)
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
@@ -94,7 +94,7 @@ class Sweep(SweepBaseProcedure):
 
     def shutdown(self):
         self.save()  # save data even if the procedure was aborted
-        self.cleanup()  # delete references to data so that memory isn't hogged
+        self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
         
     def make_procedure_from_file(self, npz_file):
@@ -135,6 +135,7 @@ class Sweep(SweepBaseProcedure):
         self.z_offset = None
         self.calibration = None
         self.noise_bias = None
+        self.metadata = {"parameters": {}}
                  
     def load(self, file_path):
         """
@@ -446,6 +447,7 @@ class Noise(MKIDProcedure):
         self.noise = None
         self.f_psd = None
         self.psd = None
+        self.metadata = {"parameters": {}}
                  
     def compute_psd(self):
         # n_points such that 100 Hz is the minimum possible freq
