@@ -234,13 +234,11 @@ class DAQ:
                 instrument.close()
             except (AttributeError, visa.InvalidSession):
                 pass  # ignore if close() doesn't exist or the resource is already closed
-            except Exception as error:
+            except Exception:
                 problem = True
                 message = "The '{}' instrument was unable to close: "
-                log.warning(message.format(instrument.__class__.__name__) + error)
-        if problem:
-            log.warning("There was a problem shutting down the DAQ")
-        else:
+                log.error(message.format(instrument.__class__.__name__), exc_info=True)
+        if not problem:
             self.closed = True
             log.info("The DAQ was properly shut down")
 
