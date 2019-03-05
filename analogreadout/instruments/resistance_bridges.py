@@ -40,11 +40,16 @@ class LakeShore370AC(LS370):
             
     @property
     def temperature(self):
-        return self.input[self.channel - 1].kelvin
+        temp = self.input[self.channel - 1].kelvin
+        sleep(self.WAIT_MEASURE)
+        return temp
+
     
     @property
     def resistance(self):
-        return self.input[self.channel - 1].resistance
+        res = self.input[self.channel - 1].resistance
+        sleep(self.WAIT_MEASURE)
+        return res
         
     def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
         if max_wait <= 0:
@@ -63,7 +68,6 @@ class LakeShore370AC(LS370):
             for _ in range(10):
                 t = self.temperature * 1000
                 temperatures.append(t)
-                sleep(self.WAIT_MEASURE)
             current_temperature = np.mean(temperatures)
             log.info("Current temperature: {:.2f} +/- {:.2f} mK".format(current_temperature, np.std(temperatures)))
             deviation = np.abs(previous_temperature - current_temperature)

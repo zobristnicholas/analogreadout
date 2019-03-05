@@ -135,7 +135,7 @@ class DAQ:
                 assert parameter.default is not None, message.format(name)
         # run procedure
         procedure = procedure()
-        if stop is not None:
+        if should_stop is not None:
             procedure.should_stop = should_stop
         if emit is not None:
             procedure.emit = emit
@@ -265,7 +265,6 @@ class DAQ:
         for _ in range(10):
             temperatures.append(self.thermometer.temperature)
             resistances.append(self.thermometer.resistance)
-            sleep(self.thermometer.WAIT_MEASURE)
         
         thermometer = {'channel': self.thermometer.channel,
                        'temperature': (np.mean(temperatures), np.std(temperatures)),
