@@ -501,7 +501,7 @@ class Noise2(Noise):
         self.update_metadata()
 
     def get_noise_data(self):
-        data = {"f_psd": self.freqs[0, :],
+        data = {"f_psd": self.f_psd[0, :],
                 "i1_psd": self.psd[0, 0, :].imag,
                 "q1_psd": self.psd[0, 0, :].real,
                 "i2_psd": self.psd[1, 0, :].real,
