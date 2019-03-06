@@ -33,6 +33,8 @@ class LakeShore370AC(LS370):
         self.calibration = interp1d(temperatures, percentages)
         # patch for missing heater        
         self.heater = Heater(self._transport, self._protocol)
+        # keep track of set point so that you don't have to keep waiting if the temperature isn't changing
+        self._set_point = None
         
     def initialize(self):
         # set channel and turn autoscan off
@@ -52,9 +54,10 @@ class LakeShore370AC(LS370):
         return res
         
     def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
-        if max_wait <= 0 or self.calibration(temperature) <= 0:
+        if max_wait <= 0 or self.calibration(temperature) <= 0 or self._set_point == temperature:
             return
         log.debug("Setting temperature to {} mK".format(temperature))
+        self._set_point = temperature
         self.set_range(heater_range)
         if temperature < 50:
             self.set_bias(2, 'voltage')
