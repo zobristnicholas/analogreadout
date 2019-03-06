@@ -34,6 +34,9 @@ class Sweep(SweepBaseProcedure):
                             ui_class=NoiseInput)
 
     def execute(self):
+        if self.should_stop():
+            log.warning(STOP_WARNING.format(self.__class__.__name__))
+            return
         # TODO: set_field when there's an instrument hooked up
         self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max)
         # calibrate the data (if possible)
@@ -93,7 +96,8 @@ class Sweep(SweepBaseProcedure):
                          emit=self.emit, **noise_kwargs)
 
     def shutdown(self):
-        self.save()  # save data even if the procedure was aborted
+        if self.z is not None:
+            self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
         
@@ -184,6 +188,8 @@ class Sweep1(Sweep):
                     'q_psd', 'f_psd']
     
     def startup(self):
+        if self.should_stop():
+            return
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span * 1e-3 / 2,
@@ -237,6 +243,8 @@ class Sweep2(Sweep):
                     'i2_psd', 'q2_psd', 'f_psd']
 
     def startup(self):
+        if self.should_stop():
+            return
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.vstack(
@@ -411,6 +419,9 @@ class Noise(MKIDProcedure):
     psd = None
 
     def execute(self):
+        if self.should_stop():
+            log.warning(STOP_WARNING.format(self.__class__.__name__))
+            return
         adc_atten = max(0, self.total_atten - self.attenuation)
         n_samples = int(self.time * self.sample_rate * 1e6)
         for index, _ in enumerate(self.freqs[0, :]):
@@ -432,7 +443,8 @@ class Noise(MKIDProcedure):
         self.emit('results', data)
             
     def shutdown(self):
-        self.save()  # save data even if the procedure was aborted
+        if self.noise is not None:
+            self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished noise procedure")
         
@@ -484,6 +496,8 @@ class Noise2(Noise):
     n_offset = FloatParameter("# of Points", default=10)
     
     def startup(self):
+        if self.should_stop():
+            return
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
         n_noise = 1 + self.off_res * self.n_offset
