@@ -52,7 +52,7 @@ class LakeShore370AC(LS370):
         return res
         
     def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
-        if max_wait <= 0:
+        if max_wait <= 0 or self.calibration(temperature) <= 0:
             return
         log.debug("Setting temperature to {} mK".format(temperature))
         self.set_range(heater_range)
