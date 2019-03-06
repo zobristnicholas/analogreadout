@@ -39,6 +39,9 @@ class LakeShore370AC(LS370):
     def initialize(self):
         # set channel and turn autoscan off
         self.input.scan = self.channel, False
+        sleep(self.WAIT_MEASURE)
+        # lowest bias setting (may be modified to a different setting later)
+        self.set_bias(2, 'voltage')
             
     @property
     def temperature(self):
