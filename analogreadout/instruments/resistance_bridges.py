@@ -93,7 +93,7 @@ class LakeShore370AC(LS370):
         self.heater.manual_output = level
         sleep(self.WAIT_MEASURE)
         
-    def set_bias(self, index, mode='voltage'):
+    def set_bias(self, index, mode='voltage', auto_range=True):
         """
         Voltage Mode    Current Mode
         1 2.00 μV       1 1.00 pA
@@ -121,7 +121,7 @@ class LakeShore370AC(LS370):
         """
         settings = self.input[self.channel - 1].resistance_range
         r_range = settings[2]
-        self.input[self.channel - 1].resistance_range = mode, index, r_range, True, False
+        self.input[self.channel - 1].resistance_range = mode, index, r_range, auto_range, False
         sleep(self.WAIT_MEASURE)
         
     def close(self):
