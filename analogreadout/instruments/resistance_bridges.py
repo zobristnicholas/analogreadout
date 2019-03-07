@@ -82,8 +82,8 @@ class LakeShore370AC(LS370):
                 n_eq += 1
             else:
                 previous_temperature = current_temperature
-                n_sleep += 1
-                sleep(60)
+            n_sleep += 1
+            sleep(60)
                 
     def set_range(self, heater_range=5):
         self.heater.range = Heater.RANGE[heater_range] 
