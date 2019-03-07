@@ -12,7 +12,7 @@ from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlo
 
 def setup_logging():
     log = logging.getLogger()
-    directory = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
+    directory = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
     if not os.path.isdir(directory):
         os.mkdir(directory)
     file_name = datetime.now().strftime("sweep_%y%m%d.log")
