@@ -68,8 +68,8 @@ class LakeShore370AC(LS370):
             self.set_bias(3, 'voltage')
         previous_temperature = 0
         n_sleep, n_eq = 0, 0
+        self.set_heater_output(self.calibration(temperature))
         while n_sleep < max_wait and n_eq < min_wait:
-            self.set_heater_output(self.calibration(temperature))
             temperatures = []
             for _ in range(10):
                 t = self.temperature * 1000
