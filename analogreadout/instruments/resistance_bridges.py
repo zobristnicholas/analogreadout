@@ -41,14 +41,16 @@ class LakeShore370AC(LS370):
         self.input.scan = self.channel, False
         sleep(self.WAIT_MEASURE)
         # lowest bias setting (may be modified to a different setting later)
-        self.set_bias(2, 'voltage')
+        if self._set_point is not None and self._set_point > 50:
+            self.set_bias(3, 'voltage')
+        else:
+            self.set_bias(2, 'voltage')
             
     @property
     def temperature(self):
         temp = self.input[self.channel - 1].kelvin
         sleep(self.WAIT_MEASURE)
         return temp
-
     
     @property
     def resistance(self):
