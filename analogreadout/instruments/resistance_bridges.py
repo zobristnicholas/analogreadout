@@ -80,7 +80,7 @@ class LakeShore370AC(LS370):
             log.info("Current temperature: {:.2f} +/- {:.2f} mK".format(current_temperature, np.std(temperatures)))
             deviation = np.abs(previous_temperature - current_temperature)
 
-            if deviation < 0.5 * np.std(temperatures):
+            if deviation < np.std(temperatures):
                 n_eq += 1
             else:
                 previous_temperature = current_temperature
