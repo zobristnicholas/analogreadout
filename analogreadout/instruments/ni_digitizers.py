@@ -10,7 +10,7 @@ try:
     DAQmx_Val_Volts = PyDAQmx.DAQmxConstants.DAQmx_Val_Volts
     DAQmx_Val_DC = PyDAQmx.DAQmxConstants.DAQmx_Val_DC
     DAQmx_Val_GroupByChannel = PyDAQmx.DAQmxConstants.DAQmx_Val_GroupByChannel
-except NotImplementedError:
+except (NotImplementedError, ImportError):
     pass  # allow for import if PyDAQmx is not configured
 
 log = logging.getLogger(__name__)
@@ -44,25 +44,25 @@ class NI6120:
         self._disable_aa_filter()
         self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples)
 
-        
     def take_noise_data(self, n_triggers):
-        data = []
         n_channels = int(len(self.channels) / 2)
         data = np.zeros((n_channels, n_triggers, int(self.samples_per_channel)),
-                        dtype=np.complex64)
+                        dtype=[('I', np.float16), ('Q', np.float16)])
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
             sleep(rand_time)
             sample = self._acquire_readings()
             for ind in range(n_channels):
-                data[ind, index, :] = sample[2 * ind, :] + 1j * sample[2 * ind + 1, :]
+                data[ind, index, :]['I'] = sample[2 * ind, :]
+                data[ind, index, :]['Q'] = sample[2 * ind + 1, :]
         return data
         
     def take_pulse_data(self, n_triggers, n_sigma=4):
+        # TODO: make this function work
         # initialize data array
         n_channels = len(self.channels)
         n_samples = int(self.samples_per_channel / self.trigger_factor)
-        data = np.zeros((n_channels, n_triggers, n_samples))
+        data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         # compute triggers
         sigmas = self._find_sigma_levels(search_length=500)
         # collect data
@@ -79,12 +79,10 @@ class NI6120:
                     logic[index] = False
             # enforce no triggers at the beginning or end of sample
             logic = np.logical_and(logic, time_indices > n_samples / 2) 
-            logic = np.logical_and(
-                logic, time_indices < self.samples_per_channel - n_samples / 2)        
+            logic = np.logical_and(logic, time_indices < self.samples_per_channel - n_samples / 2)
             # trim triggers and convert to index array
             time_indices = time_indices[logic]
-            index_array = (np.ones((len(time_indices), n_samples)) *
-                           np.arange(-n_samples // 2, n_samples // 2) +
+            index_array = (np.ones((len(time_indices), n_samples)) * np.arange(-n_samples // 2, n_samples // 2) +
                            np.atleast_2d(time_indices).T)
             # add triggers to data array
             new_data = sample[index_array]  # (triggers, samples, channel)
@@ -96,15 +94,13 @@ class NI6120:
             # update counter
             n_pulses += n_new_pulses
         return tuple(data)           
-            
-    
+
     def take_iq_point(self):
         channel_data = self._acquire_readings()
         # combine I and Q signals
         data = np.zeros(int(len(channel_data) / 2), dtype=np.complex64)
         for index in range(int(len(channel_data) / 2)):
-            data[index] = (np.mean(channel_data[2 * index]) +
-                           1j * np.mean(channel_data[2 * index + 1]))
+            data[index] = (np.mean(channel_data[2 * index]) + 1j * np.mean(channel_data[2 * index + 1]))
         return data
 
     def reset(self):

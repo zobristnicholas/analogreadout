@@ -30,8 +30,7 @@ class Sweep(SweepBaseProcedure):
     reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
     wait_temp_min = IntegerParameter("Set Temperature Minimum Wait Time", units="minutes", default=0)
     wait_temp_max = IntegerParameter("Set Temperature Maximum Wait Time", units="minutes", default=0)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10],
-                            ui_class=NoiseInput)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10], ui_class=NoiseInput)
 
     def execute(self):
         if self.should_stop():
@@ -45,9 +44,8 @@ class Sweep(SweepBaseProcedure):
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
-            self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf, 
-                                sample_rate=self.sample_rate * 1e6,
-                                n_samples=self.n_samples)  
+            self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf,
+                                sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -61,9 +59,8 @@ class Sweep(SweepBaseProcedure):
                 return
         # initialize the system in the right mode
         adc_atten = max(0, self.total_atten - self.attenuation)
-        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation,
-                            adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
-                            n_samples=self.n_samples)
+        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation, adc_atten=adc_atten,
+                            sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -92,8 +89,7 @@ class Sweep(SweepBaseProcedure):
             # get noise kwargs
             noise_kwargs = self.noise_kwargs()
             # run noise procedure
-            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop,
-                         emit=self.emit, **noise_kwargs)
+            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit, **noise_kwargs)
 
     def shutdown(self):
         if self.z is not None:
@@ -129,9 +125,8 @@ class Sweep(SweepBaseProcedure):
     def save(self):
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
-        np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset,
-                 calibration=self.calibration, noise_bias=self.noise_bias,
-                 metadata=self.metadata)
+        np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset, calibration=self.calibration,
+                 noise_bias=self.noise_bias, metadata=self.metadata)
                  
     def clean_up(self):
         self.freqs = None
@@ -159,8 +154,8 @@ class Sweep(SweepBaseProcedure):
     def get_psd(file_path):
         npz_file = np.load(file_path)
         f_psd = npz_file["f_psd"]
-        i_psd = npz_file["psd"].real
-        q_psd = npz_file["psd"].imag
+        i_psd = npz_file["psd"]['I']
+        q_psd = npz_file["psd"]['Q']
         return f_psd, i_psd, q_psd
         
     def startup(self):
@@ -184,8 +179,7 @@ class Sweep1(Sweep):
     frequency = FloatParameter("Center Frequency", units="GHz", default=4.0)
     span = FloatParameter("Span", units="MHz", default=2)
     # gui data columns
-    DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'f_bias', 't_bias', 'i_psd',
-                    'q_psd', 'f_psd']
+    DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'f_bias', 't_bias', 'i_psd', 'q_psd', 'f_psd']
     
     def startup(self):
         if self.should_stop():
@@ -193,8 +187,7 @@ class Sweep1(Sweep):
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span * 1e-3 / 2,
-                                               self.frequency + self.span * 1e-3 / 2,
-                                               self.n_points))
+                                               self.frequency + self.span * 1e-3 / 2, self.n_points))
         if self.reverse_sweep:
             self.freqs = self.freqs[:, ::-1]                                       
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz        
@@ -237,28 +230,24 @@ class Sweep2(Sweep):
     frequency2 = FloatParameter("Ch 2 Frequency", units="GHz", default=4.0)
     span2 = FloatParameter("Ch 2 Span", units="MHz", default=2)
     # gui data columns
-    DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'f1_bias', 't1_bias', 'i1_bias', 'q1_bias',
-                    'i1_psd', 'q1_psd',
-                    'f2', 'i2', 'q2', 't2', 'f2_bias', 't2_bias', 'i2_bias', 'q2_bias',
-                    'i2_psd', 'q2_psd', 'f_psd']
+    DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'f1_bias', 't1_bias', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd', 'f1_psd'
+                    'f2', 'i2', 'q2', 't2', 'f2_bias', 't2_bias', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
         if self.should_stop():
             return
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
-        self.freqs = np.vstack(
-            (np.linspace(self.frequency1 - self.span1 * 1e-3 / 2,
-                         self.frequency1 + self.span1 * 1e-3 / 2, self.n_points),
-             np.linspace(self.frequency2 - self.span2 * 1e-3 / 2,
-                         self.frequency2 + self.span2 * 1e-3 / 2, self.n_points)))
+        self.freqs = np.vstack((np.linspace(self.frequency1 - self.span1 * 1e-3 / 2,
+                                            self.frequency1 + self.span1 * 1e-3 / 2, self.n_points),
+                                np.linspace(self.frequency2 - self.span2 * 1e-3 / 2,
+                                            self.frequency2 + self.span2 * 1e-3 / 2, self.n_points)))
         if self.reverse_sweep:
             self.freqs = self.freqs[:, ::-1]
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
-        self.calibration = np.zeros((2, 3, self.n_samples),
-                                    dtype=np.complex64)
+        self.calibration = np.zeros((2, 3, self.n_samples), dtype=np.complex64)
         self.noise_bias = np.zeros(6)
         # save parameter metadata
         self.update_metadata()
@@ -291,11 +280,11 @@ class Sweep2(Sweep):
             noise_file = np.load(noise_file)
             psd = noise_file["psd"]
             freqs = noise_file["f_psd"]
-            size2 = freqs[0, :].size
+            size2 = freqs.size
         except FileNotFoundError:
             size2 = 1
-            freqs = np.zeros((2, size2)) * np.nan
-            psd = np.zeros((2, 1, size2)) * np.nan
+            freqs = np.array([(np.nan, np.nan)], dtype=[('I', np.float), ('Q', np.float)])
+            psd = np.array([[[(np.nan, np.nan)]], [[(np.nan, np.nan)]]], dtype=[('I', np.float16), ('Q', np.float16)])
 
         # create empty numpy structured array
         size1 = npz_file["freqs"][0, :].size
@@ -317,15 +306,16 @@ class Sweep2(Sweep):
         records["i1"][:size1] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
         records["q1"][:size1] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
         records["t1"][:size1] = t1
-        records["i1_psd"][:size2] = psd[0, 0, :].real
-        records["q1_psd"][:size2] = psd[0, 0, :].imag
+        records["i1_psd"][:size2] = psd[0, 0, :]['I']
+        records["q1_psd"][:size2] = psd[0, 0, :]['Q']
+        records["f1_psd"][:size2] = freqs[0, :]
         records["f2"][:size1] = npz_file["freqs"][1, :]
         records["i2"][:size1] = npz_file["z"][1, :].real - npz_file["z_offset"][1, :].real
         records["q2"][:size1] = npz_file["z"][1, :].imag - npz_file["z_offset"][1, :].imag
         records["t2"][:size1] = t2
-        records["i2_psd"][:size2] = psd[1, 0, :].real
-        records["q2_psd"][:size2] = psd[1, 0, :].imag
-        records["f_psd"][:size2] = freqs[0, :]
+        records["i2_psd"][:size2] = psd[1, 0, :]['I']
+        records["q2_psd"][:size2] = psd[1, 0, :]['Q']
+        records["f2_psd"][:size2] = freqs[1, :]
         if not (npz_file["noise_bias"][1] == np.zeros(6)).all():
             records["f1_bias"][:1] = npz_file["noise_bias"][0]
             records["t1_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
@@ -362,13 +352,11 @@ class Sweep2(Sweep):
                                     np.mean(z[1, indices[1]: indices[1] + 2].real),
                                     np.mean(z[1, indices[1]: indices[1] + 2].imag)])
         self.emit("results", {'f1_bias': frequencies[0],
-                              't1_bias': 20 * np.log10(np.abs(self.noise_bias[1] +
-                                                              1j * self.noise_bias[2])),
+                              't1_bias': 20 * np.log10(np.abs(self.noise_bias[1] + 1j * self.noise_bias[2])),
                               'i1_bias': self.noise_bias[1],
                               'q1_bias': self.noise_bias[2],
                               'f2_bias': frequencies[1],
-                              't2_bias': 20 * np.log10(np.abs(self.noise_bias[4] +
-                                                              1j * self.noise_bias[5])),
+                              't2_bias': 20 * np.log10(np.abs(self.noise_bias[4] + 1j * self.noise_bias[5])),
                               'i2_bias': self.noise_bias[4],
                               'q2_bias': self.noise_bias[5]})
         
@@ -388,9 +376,8 @@ class Sweep2(Sweep):
     def calibrate(self):
         # initialize in noise data mode
         adc_atten = max(0, self.total_atten - self.attenuation)
-        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation,
-                            adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
-                            n_samples=self.n_samples)
+        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation, adc_atten=adc_atten,
+                            sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # channel 1 lowest frequency
         self.daq.dac.set_frequency([self.freqs[0, 0], self.freqs[0, 0] + 1e-5])
         self.calibration[0, 0, :] = self.daq.adc.take_noise_data(1)[0]
@@ -426,9 +413,8 @@ class Noise(MKIDProcedure):
         n_samples = int(self.time * self.sample_rate * 1e6)
         for index, _ in enumerate(self.freqs[0, :]):
             # initialize the system in the right mode
-            self.daq.initialize(self.freqs[:, index], dac_atten=self.attenuation,
-                                adc_atten=adc_atten, sample_rate=self.sample_rate * 1e6,
-                                n_samples=n_samples)
+            self.daq.initialize(self.freqs[:, index], dac_atten=self.attenuation, adc_atten=adc_atten,
+                                sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
             # take the data
             data = self.daq.adc.take_noise_data(self.n_integrations)
             self.noise[:, index, :, :] = data   
@@ -451,8 +437,7 @@ class Noise(MKIDProcedure):
     def save(self):
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
-        np.savez(file_path, freqs=self.freqs, noise=self.noise, f_psd=self.f_psd,
-                 psd=self.psd, metadata=self.metadata)
+        np.savez(file_path, freqs=self.freqs, noise=self.noise, f_psd=self.f_psd, psd=self.psd, metadata=self.metadata)
                  
     def clean_up(self):
         self.freqs = None
@@ -464,11 +449,10 @@ class Noise(MKIDProcedure):
     def compute_psd(self):
         # n_points such that 100 Hz is the minimum possible freq
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
-        kwargs = {'nperseg': n_points, 'fs': self.sample_rate * 1e6,
-                  'return_onesided': True, 'detrend': 'constant', 'scaling': 'density',
-                  'axis': -1, 'window': 'hanning'}
-        _, i_psd = sig.welch(self.noise.real, **kwargs)
-        _, q_psd = sig.welch(self.noise.imag, **kwargs)
+        kwargs = {'nperseg': n_points, 'fs': self.sample_rate * 1e6, 'return_onesided': True,
+                  'detrend': 'constant', 'scaling': 'density', 'axis': -1, 'window': 'hanning'}
+        _, i_psd = sig.welch(self.noise['I'], **kwargs)
+        _, q_psd = sig.welch(self.noise['Q'], **kwargs)
         # average multiple PSDs together
         i_psd = np.mean(i_psd, axis=-2)
         q_psd = np.mean(q_psd, axis=-2)
@@ -476,7 +460,8 @@ class Noise(MKIDProcedure):
         i_psd[:, :, 0] = i_psd[:, :, 1]
         q_psd[:, :, 0] = q_psd[:, :, 1]
         # save in array
-        self.psd = i_psd + 1j * q_psd
+        self.psd['I'] = i_psd
+        self.psd['Q'] = q_psd
 
     def get_noise_data(self):
         raise NotImplementedError
@@ -504,20 +489,20 @@ class Noise2(Noise):
         n_points = int(self.time * self.sample_rate * 1e6)
         offset = np.linspace(0, self.offset, self.off_res * self.n_offset + 1)
         self.freqs = np.array([self.frequency1 + offset, self.frequency2 + offset])
-        self.noise = np.zeros((2, n_noise, self.n_integrations, n_points),
-                              dtype=np.complex64)
+        self.noise = np.zeros((2, n_noise, self.n_integrations, n_points), dtype=[('I', np.float16), ('Q', np.float16)])
                               
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
         fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
-        self.psd = np.zeros((2, n_noise, n_fft), dtype=np.complex64)
+        self.psd = np.zeros((2, n_noise, n_fft), dtype=[('I', np.float16), ('Q', np.float16)])
         self.f_psd = np.array([fft_freq, fft_freq])
         self.update_metadata()
 
     def get_noise_data(self):
-        data = {"f_psd": self.f_psd[0, :],
-                "i1_psd": self.psd[0, 0, :].imag,
-                "q1_psd": self.psd[0, 0, :].real,
-                "i2_psd": self.psd[1, 0, :].real,
-                "q2_psd": self.psd[1, 0, :].imag}
+        data = {"f1_psd": self.f_psd[0, :],
+                "i1_psd": self.psd[0, 0, :]['I'],
+                "q1_psd": self.psd[0, 0, :]['Q'],
+                "f2_psd": self.f_psd[1, :],
+                "i2_psd": self.psd[1, 0, :]['I'],
+                "q2_psd": self.psd[1, 0, :]['Q']}
         return data

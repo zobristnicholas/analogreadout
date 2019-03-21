@@ -107,8 +107,7 @@ class DAQ:
         procedure_class.connect_daq(self)
         return procedure_class
     
-    def run(self, procedure_type, file_name_kwargs=None, should_stop=None, emit=None,
-            **kwargs):
+    def run(self, procedure_type, file_name_kwargs=None, should_stop=None, emit=None, **kwargs):
         """
         Take data for the given procedure_type. The procedure class is defined in the
         configuration file.
