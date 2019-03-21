@@ -4,11 +4,18 @@ import sys
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
+import numpy as  np
 from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Sweep2
-from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget,
-                         TransmissionPlotWidget, get_image_icon)
+from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget, TransmissionPlotWidget,
+                         TimePlotWidget, get_image_icon)
+                         
+daq = None
+
+temperature_log = logging.getLogger('temperature')
+temperature_log.addHandler(logging.NullHandler())
+
 
 def setup_logging():
     log = logging.getLogger()
@@ -24,8 +31,19 @@ def setup_logging():
     log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%I:%M:%S %p')
     handler.setFormatter(log_format)
     log.addHandler(handler)
+
     return log
 
+def temperature():
+    try:
+        temperatures = []
+        for _ in range(10):
+            temperatures.append(daq.thermometer.temperature * 1000)
+        temp = np.median(temperatures)
+        temperature_log.info(str(temp) + ' mK')
+    except AttributeError:
+        temp = np.nan
+    return temp
 
 def sweep_window():
     x_list = (('i1', 'i1_bias'), ('f1',), ('f1_psd', 'f1_psd'),
@@ -42,14 +60,17 @@ def sweep_window():
                     SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
-    
+    indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=60, max_length=int(24 * 60))
+
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list,
-                 plot_names=names_list, log_level="INFO")
+                 plot_names=names_list, log_level="INFO", persistent_indicators=indicators)
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
-    Sweep2.connect_daq(DAQ("UCSB"))
+    global daq
+    daq = DAQ("UCSB")
+    Sweep2.connect_daq(daq)
     return w
 
 
