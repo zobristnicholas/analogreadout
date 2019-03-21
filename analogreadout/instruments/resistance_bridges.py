@@ -10,6 +10,7 @@ from slave.transport import Visa, SimulatedTransport
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
+
 # patch Integer type in slaves module
 Integer.__convert__ = lambda self, value: int(float(value))
 

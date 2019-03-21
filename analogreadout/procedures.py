@@ -176,6 +176,8 @@ class Sweep1(Sweep):
     def startup(self):
         if self.should_stop():
             return
+        self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span * 1e-3 / 2,
@@ -228,6 +230,8 @@ class Sweep2(Sweep):
     def startup(self):
         if self.should_stop():
             return
+        self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.vstack((np.linspace(self.frequency1 - self.span1 * 1e-3 / 2,
@@ -471,6 +475,8 @@ class Noise2(Noise):
     def startup(self):
         if self.should_stop():
             return
+        self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
         n_noise = 1 + self.off_res * self.n_offset
