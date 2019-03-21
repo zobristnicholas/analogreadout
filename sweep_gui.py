@@ -21,16 +21,15 @@ def setup_logging():
     handler.suffix = "%Y%m%d"
     handler.extMatch = re.compile(r"^\d{8}$")
     handler.setLevel("INFO")
-    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)',
-                                   datefmt='%I:%M:%S %p')
+    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%I:%M:%S %p')
     handler.setFormatter(log_format)
     log.addHandler(handler)
     return log
 
 
 def sweep_window():
-    x_list = (('i1', 'i1_bias'), ('f1',), ('f_psd', 'f_psd'),
-              ('i2', 'i2_bias'), ('f2',), ('f_psd', 'f_psd'))
+    x_list = (('i1', 'i1_bias'), ('f1',), ('f1_psd', 'f1_psd'),
+              ('i2', 'i2_bias'), ('f2',), ('f2_psd', 'f2_psd'))
     y_list = (('q1', 'q1_bias'), ('t1',), ("i1_psd", "q1_psd"),
               ('q2', 'q2_bias'), ('t2',), ("i2_psd", "q2_psd"))
     x_label = ("I [V]", "frequency [GHz]", "frequency [Hz]",

@@ -149,15 +149,7 @@ class Sweep(SweepBaseProcedure):
         # make a temporary file for the gui data
         results = self.make_results(records, procedure)
         return results
-        
-    @staticmethod
-    def get_psd(file_path):
-        npz_file = np.load(file_path)
-        f_psd = npz_file["f_psd"]
-        i_psd = npz_file["psd"]['I']
-        q_psd = npz_file["psd"]['Q']
-        return f_psd, i_psd, q_psd
-        
+            
     def startup(self):
         pass
     
@@ -230,7 +222,7 @@ class Sweep2(Sweep):
     frequency2 = FloatParameter("Ch 2 Frequency", units="GHz", default=4.0)
     span2 = FloatParameter("Ch 2 Span", units="MHz", default=2)
     # gui data columns
-    DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'f1_bias', 't1_bias', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd', 'f1_psd'
+    DATA_COLUMNS = ['f1', 'i1', 'q1', 't1', 'f1_bias', 't1_bias', 'i1_bias', 'q1_bias', 'i1_psd', 'q1_psd', 'f1_psd',
                     'f2', 'i2', 'q2', 't2', 'f2_bias', 't2_bias', 'i2_bias', 'q2_bias', 'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
@@ -280,7 +272,7 @@ class Sweep2(Sweep):
             noise_file = np.load(noise_file)
             psd = noise_file["psd"]
             freqs = noise_file["f_psd"]
-            size2 = freqs.size
+            size2 = freqs[0, :].size
         except FileNotFoundError:
             size2 = 1
             freqs = np.array([(np.nan, np.nan)], dtype=[('I', np.float), ('Q', np.float)])
@@ -296,10 +288,8 @@ class Sweep2(Sweep):
         db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(
-                npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - db0
-            t2 = 20 * np.log10(np.abs(
-                npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - db0
+            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - db0
+            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - db0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
         records["f1"][:size1] = npz_file["freqs"][0, :] 
@@ -318,13 +308,11 @@ class Sweep2(Sweep):
         records["f2_psd"][:size2] = freqs[1, :]
         if not (npz_file["noise_bias"][1] == np.zeros(6)).all():
             records["f1_bias"][:1] = npz_file["noise_bias"][0]
-            records["t1_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
-                                                          1j * npz_file["noise_bias"][2]))
+            records["t1_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][1] + 1j * npz_file["noise_bias"][2]))
             records["i1_bias"][:1] = npz_file["noise_bias"][1]
             records["q1_bias"][:1] = npz_file["noise_bias"][2]
             records["f2_bias"][:1] = npz_file["noise_bias"][3]
-            records["t2_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][4] +
-                                                          1j * npz_file["noise_bias"][5]))
+            records["t2_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][4] + 1j * npz_file["noise_bias"][5]))
             records["i2_bias"][:1] = npz_file["noise_bias"][4]
             records["q2_bias"][:1] = npz_file["noise_bias"][5]
 
@@ -494,7 +482,7 @@ class Noise2(Noise):
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
         fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
-        self.psd = np.zeros((2, n_noise, n_fft), dtype=[('I', np.float16), ('Q', np.float16)])
+        self.psd = np.zeros((2, n_noise, n_fft), dtype=[('I', np.float32), ('Q', np.float32)])
         self.f_psd = np.array([fft_freq, fft_freq])
         self.update_metadata()
 
