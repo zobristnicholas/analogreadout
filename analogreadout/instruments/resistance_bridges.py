@@ -48,6 +48,9 @@ class LakeShore370AC(LS370):
             
     @property
     def temperature(self):
+        # TODO: log the temperature and resistance every time it is measured to a special log file that can be set up by
+        #  each procedure. The procedure can remove and add new file handlers so that the logs follow where the data is
+        #  saved.
         temp = self.input[self.channel - 1].kelvin
         sleep(self.WAIT_MEASURE)
         return temp
