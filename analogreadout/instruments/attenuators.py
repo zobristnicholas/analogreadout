@@ -11,6 +11,7 @@ log.addHandler(logging.NullHandler())
 class Weinschel83102042F:
     MAX_ATTEN = 62
     STEP = 2
+
     def __init__(self, address, channels):
         try:
             resource_manager = visa.ResourceManager()

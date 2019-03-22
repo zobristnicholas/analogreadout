@@ -7,6 +7,7 @@ from time import sleep
 from datetime import datetime
 from pymeasure.experiment import Parameter
 from analogreadout.configurations import config
+from analogreadout.instruments.sources import NotASource
 from analogreadout.instruments.sensors import NotASensor
 from analogreadout.instruments.attenuators import NotAnAttenuator
 from analogreadout.instruments.resistance_bridges import NotAThermometer
@@ -63,7 +64,8 @@ class DAQ:
                                  'dac',  # dac attenuator
                                  'adc',  # adc attenuator
                                  'thermometer',  # device thermometer
-                                 'primary_amplifier')  # first amplifier in the chain
+                                 'primary_amplifier',  # first amplifier in the chain
+                                 'laser')  # laser source
         for name in self.instrument_names:
             setattr(self, name, None)
         # set the instruments specified in the configuration
@@ -82,6 +84,9 @@ class DAQ:
                 self.thermometer = get_instrument(value)
             elif key == "primary_amplifier":
                 self.primary_amplifier = get_instrument(value)
+        for key, value in self.config['sources'].items():
+            if key == "laser":
+                self.laser = get_instrument(value)
         # if the instrument wasn't initialized set it to a dummy NotAnInstrument class
         if self.adc is None or self.dac is None:
             raise ValueError("configuration must specify an adc and dac")
@@ -93,6 +98,8 @@ class DAQ:
             self.thermometer = NotAThermometer()
         if self.primary_amplifier is None:
             self.primary_amplifier = NotASensor("Primary Amplifier")
+        if self.laser is None:
+            self.laser = NotASource("Laser Box")
         # set a flag that tracks if the all the instruments have been closed
         self.closed = False
         
@@ -194,12 +201,12 @@ class DAQ:
         return take_pulse_data(self.daq, *args, **kwargs)
         
     def initialize(self, frequency, power=None, dac_atten=0, adc_atten=0,
-                   sample_rate=None, n_samples=None, channels=None):
+                   sample_rate=None, n_samples=None, channels=None, laser_state=None):
         """
         Initialize all of the instruments according to their initialize methods.
         Args:
             frequency: frequency to output from the DAC [GHz]
-            power: power to output from the DAC [dBm] (optional, defaluts to config value)
+            power: power to output from the DAC [dBm] (optional, defaults to config value)
             dac_atten: DAC attenuation [dB] (optional, defaults to 0)
             adc_atten: ADC attenuation [dB] (optional, defaults to 0)
             sample_rate: ADC sample rate [Hz] (optional, default depends on ADC)
@@ -207,16 +214,17 @@ class DAQ:
                 on the hardware.
             n_samples: samples per ADC acquisition (optional, default depends on ADC)
             channels: ADC channels to take data with (optional, default depends on ADC)
+            laser_state: state of the laser to initialize (optional, default depends on laser)
         """
         self.dac_atten.initialize(dac_atten)
         self.adc_atten.initialize(adc_atten)
         if power is None:
             power = self.config['dac']['dac']['power']
         self.dac.initialize(frequency, power)
-        self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples,
-                            channels=channels)
+        self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples, channels=channels)
         self.thermometer.initialize()
         self.primary_amplifier.initialize()
+        self.laser.initialize(laser_state)
         sleep(1)
 
     def close(self):

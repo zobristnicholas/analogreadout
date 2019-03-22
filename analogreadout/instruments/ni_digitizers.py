@@ -57,43 +57,33 @@ class NI6120:
                 data[ind, index, :]['Q'] = sample[2 * ind + 1, :]
         return data
         
-    def take_pulse_data(self, n_triggers, n_sigma=4):
+    def take_pulse_data(self, trigger_level, n_sigma=4):
         # TODO: make this function work
         # initialize data array
         n_channels = len(self.channels)
         n_samples = int(self.samples_per_channel / self.trigger_factor)
-        data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        # compute triggers
-        sigmas = self._find_sigma_levels(search_length=500)
         # collect data
         n_pulses = 0
-        while n_pulses < n_triggers:
-            sample = self._acquire_readings().T 
-            sample -= np.median(sample, axis=1)
-            # time ordered pulse indices
-            time_indices, _ = np.where(np.abs(sample) > n_sigma * sigmas)
-            # enforce one trigger per n_samples
-            logic = np.ones(time_indices.shape, dtype=bool)            
-            for index, time_index in enumerate(time_indices):
-                if np.any(time_index - time_indices[:index] < n_samples):
-                    logic[index] = False
-            # enforce no triggers at the beginning or end of sample
-            logic = np.logical_and(logic, time_indices > n_samples / 2) 
-            logic = np.logical_and(logic, time_indices < self.samples_per_channel - n_samples / 2)
-            # trim triggers and convert to index array
-            time_indices = time_indices[logic]
-            index_array = (np.ones((len(time_indices), n_samples)) * np.arange(-n_samples // 2, n_samples // 2) +
-                           np.atleast_2d(time_indices).T)
-            # add triggers to data array
-            new_data = sample[index_array]  # (triggers, samples, channel)
-            new_data = np.transpose(new_data, (2, 0, 1))  # (channel, triggers, samples)
-            n_new_pulses = new_data.shape[1]
-            if n_new_pulses + n_pulses > n_triggers:
-                n_new_pulses = n_triggers - n_pulses
-            data[:, n_pulses:n_pulses + n_new_pulses, :] = new_data[:, :n_new_pulses, :] 
-            # update counter
-            n_pulses += n_new_pulses
-        return tuple(data)           
+        sample = self._acquire_readings()
+        # time ordered pulse indices
+        logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * trigger_level
+        # enforce one trigger per n_samples
+        for index, value in enumerate(logic.T):
+            if value:
+                previous_triggers = np.any(logic[:, index - n_samples: index])
+                beginning_trigger = index < n_samples // 2
+                ending_trigger = index > self.samples_per_channel - n_samples // 2
+                if previous_triggers or beginning_trigger or ending_trigger:
+                    logic[:, index] = False
+        # put triggers in dataset
+        n_triggers = int(np.sum(logic))
+        data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
+        time_indices = np.where(logic)[1]
+        ii = 0
+        for time_index in time_indices:
+            data[:, ii, :] = sample[:, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
+            ii += 1
+        return data
 
     def take_iq_point(self):
         channel_data = self._acquire_readings()
