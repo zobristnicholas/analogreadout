@@ -22,10 +22,11 @@ def jpl_config():
     adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (scope_address,),
                           "location": "oscilloscopes"}}
     sensor_config = {}  # thermometer, primary_amplifier
+    source_config = {}  # laser
     procedure_config = {"sweep": "Sweep", "noise": "Noise", "pulse": "Pulse"}
 
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
-                     "procedures": procedure_config}
+                     "procedures": procedure_config, "sources": source_config}
     return configuration
 
 
@@ -47,8 +48,9 @@ def ucsb_config():
     scanner = '3716'
     sensor_config = {"thermometer": {"instrument": "LakeShore370AC",
                                      "arguments": (thermometer_address, channel, scanner),
-                                      "location": "resistance_bridges"}}  
+                                     "location": "resistance_bridges"}}
+    source_config = {"laser": {"instrument": "LaserBox", "arguments": (), "location": "sources"}}
     procedure_config = {"sweep": "Sweep2", "noise": "Noise2", "pulse": "Pulse2"}
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
-                     "procedures": procedure_config}
+                     "procedures": procedure_config, "sources": source_config}
     return configuration
