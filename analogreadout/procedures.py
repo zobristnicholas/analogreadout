@@ -3,6 +3,7 @@ import logging
 import tempfile
 import warnings
 import numpy as np
+from time import sleep
 import scipy.signal as sig
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
                          DirectoryParameter, BooleanListInput, Indicator)
@@ -30,7 +31,7 @@ class Sweep(SweepBaseProcedure):
     reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
     wait_temp_min = IntegerParameter("Set Temperature Minimum Wait Time", units="minutes", default=0)
     wait_temp_max = IntegerParameter("Set Temperature Maximum Wait Time", units="minutes", default=0)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10], ui_class=NoiseInput)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -2, 1], ui_class=NoiseInput)
     status_bar = Indicator("Status")
 
     def execute(self):
@@ -406,8 +407,8 @@ class Noise(MKIDProcedure):
     time = FloatParameter("Integration Time", default=1)
     n_integrations = IntegerParameter("Number of Integrations", units="s", default=1)
     off_res = BooleanParameter("Take Off Resonance Data", default=True)
-    offset = FloatParameter("Frequency Offset", units="MHz", default=-1)
-    n_offset = FloatParameter("# of Points", default=10)
+    offset = FloatParameter("Frequency Offset", units="MHz", default=-2)
+    n_offset = IntegerParameter("# of Points", default=1)
     status_bar = Indicator("Status")
 
     def execute(self):
@@ -417,7 +418,7 @@ class Noise(MKIDProcedure):
         adc_atten = max(0, self.total_atten - self.attenuation)
         n_samples = int(self.time * self.sample_rate * 1e6)
         for index, _ in enumerate(self.freqs[0, :]):
-            self.status_bar.value = "Taking noise data {:d} / {:d}".format(index + 1, len(self.freqs[0, :]))
+            self.status_bar.value = "Taking noise data ({:d} / {:d})".format(index + 1, len(self.freqs[0, :]))
             # initialize the system in the right mode
             self.daq.initialize(self.freqs[:, index], dac_atten=self.attenuation, adc_atten=adc_atten,
                                 sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
@@ -488,7 +489,7 @@ class Noise2(Noise):
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
-        n_noise = 1 + self.off_res * self.n_offset
+        n_noise = int(1 + self.off_res * self.n_offset)
         n_points = int(self.time * self.sample_rate * 1e6)
         offset = np.linspace(0, self.offset, self.off_res * self.n_offset + 1)
         self.freqs = np.array([self.frequency1 + offset, self.frequency2 + offset])
@@ -518,12 +519,12 @@ class Pulse(MKIDProcedure):
 
     directory = DirectoryParameter("Data Directory")
     attenuation = FloatParameter("DAC Attenuation", units="dB")
-    sample_rate = FloatParameter("Sampling Rate", units="Hz", default=8e5)
+    sample_rate = FloatParameter("Sampling Rate", units="MHz", default=0.8)
     sigma = FloatParameter("N Sigma Trigger", default=4)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
-    n_samples = IntegerParameter("Number of Data Points per Pulses", default=2000)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -1, 10], ui_class=NoiseInput)
+    n_samples = IntegerParameter("Data Points per Pulses", default=2000)
+    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -2, 1], ui_class=NoiseInput)
     ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
     status_bar = Indicator("Status")
@@ -549,7 +550,7 @@ class Pulse(MKIDProcedure):
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
                             sample_rate=self.sample_rate * 1e6, n_samples=100 * self.n_samples)
-        sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1).squeeze()
+        # sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1).squeeze()
 
         # take the data
         self.status_bar.value = "Taking pulse data"
@@ -557,15 +558,21 @@ class Pulse(MKIDProcedure):
         n_pulses = 0
         plot_condition = 0
         while n_pulses < self.n_pulses:
-            data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_samples ['I' or 'Q']
+            # data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_samples ['I' or 'Q']
+            data = np.random.random_sample((4, 10, self.n_samples))            
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
-            self.pulses[:, n_pulses: new_pulses + 1, :] = data[:, :space_left, :]
+            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[::2, :space_left, :]
+            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[1::2, :space_left, :]
+
             n_pulses += new_pulses
             self.emit("progress", n_pulses / self.n_pulses * 100)
 
             if n_pulses > plot_condition:
-                self.emit('results', some_data, clear=True)
+                pulses = self.get_pulse_data(data)
+                self.emit('results', pulses, clear=True)
+                plot_condition += 500
+            sleep(.1)
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
@@ -589,11 +596,16 @@ class Pulse(MKIDProcedure):
         self.freqs = None
         self.pulses = None
         self.metadata = {"parameters": {}}
+        
+    def noise_kwargs(self):
+        raise NotImplementedError
 
 
 class Pulse2(Pulse):
     frequency1 = FloatParameter("Channel 1 Bias Frequency", units="GHz", default=4.0)
     frequency2 = FloatParameter("Channel 2 Bias Frequency", units="GHz", default=4.0)
+    
+    DATA_COLUMNS = ["t", "i1", "q1", "i2", "q2", 'i1_psd', 'q1_psd', 'f1_psd', 'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
         if self.should_stop():
@@ -601,8 +613,30 @@ class Pulse2(Pulse):
         self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
-        log.info("Starting noise procedure")
+        log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency1, self.frequency2])
-        self.pulses = np.zeros((2, self.n_pulses, self.n_points), dtype=[('I', np.float16), ('Q', np.float16)])
+        self.pulses = np.zeros((2, self.n_pulses, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         self.update_metadata()
+        
+    def get_pulse_data(self, pulses):
+        data = {"t": np.linspace(0, self.n_samples / self.sample_rate * 1e6, self.n_samples),
+                "i1": pulses[0, 0, :],
+                "q1": pulses[1, 0, :],
+                "i2": pulses[2, 0, :],
+                "q2": pulses[3, 0, :]}
+        return data
+        
+    def noise_kwargs(self):
+        kwargs = {'directory': self.directory,
+                  'attenuation': self.attenuation,
+                  'sample_rate': self.sample_rate,
+                  'total_atten': self.total_atten,
+                  'frequency1': self.frequency1,
+                  'frequency2': self.frequency2,
+                  'time': self.noise[1],
+                  'n_integrations': self.noise[2],
+                  'off_res': bool(self.noise[3]),
+                  'offset': self.noise[4],
+                  'n_offset': self.noise[5]}
+        return kwargs
