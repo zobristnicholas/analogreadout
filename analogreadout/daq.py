@@ -114,7 +114,7 @@ class DAQ:
         procedure_class.connect_daq(self)
         return procedure_class
     
-    def run(self, procedure_type, file_name_kwargs=None, should_stop=None, emit=None, **kwargs):
+    def run(self, procedure_type, file_name_kwargs=None, should_stop=None, emit=None, indicators=None, **kwargs):
         """
         Take data for the given procedure_type. The procedure class is defined in the
         configuration file.
@@ -123,6 +123,7 @@ class DAQ:
         file_name_kwargs: kwargs to pass to procedure.file_name() after instantiation
         should_stop: method to monkey patch into procedure.stop  (for chained procedures)
         emit: method to monkey patch into procedure.emit (for sending data to listener)
+        indicators: dictionary of indicators {"attribute name": indicator} to monkey patch into the procedure
         **kwargs: procedure parameters (set to the defaults if not specified)
         """
         if file_name_kwargs is None:
@@ -145,6 +146,9 @@ class DAQ:
             procedure.should_stop = should_stop
         if emit is not None:
             procedure.emit = emit
+        if indicators is not None:
+            for attribute, indicator in indicators.items():
+                setattr(procedure, attribute, indicator)
         if file_name_kwargs.get("prefix", None) is None:
             file_name_kwargs["prefix"] = procedure_type
         procedure.file_name(**file_name_kwargs)

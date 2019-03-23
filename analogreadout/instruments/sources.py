@@ -1,3 +1,9 @@
+import logging
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
+
+
 class LaserBox:
     OFF_STATE = (0, 0, 0, 0, 0)
 
@@ -7,8 +13,7 @@ class LaserBox:
     def initialize(self, state):
         self.set_state(state)
 
-    @staticmethod
-    def set_state(state):
+    def set_state(self, state):
         if state is None:
             state = self.OFF_STATE
         pass

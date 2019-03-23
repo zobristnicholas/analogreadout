@@ -79,14 +79,14 @@ class Sweep(SweepBaseProcedure):
         self.metadata.update(self.daq.system_state())
         # take noise data
         if self.noise[0]:
-            self.status_bar.value = "Taking noise data"
             # get file name kwargs from file_name
             file_name_kwargs = self.file_name_parts()
             file_name_kwargs["prefix"] = "noise"
             # get noise kwargs
             noise_kwargs = self.noise_kwargs()
             # run noise procedure
-            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit, **noise_kwargs)
+            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit,
+                         indicators={"status_bar": self.status_bar}, **noise_kwargs)
 
     def shutdown(self):
         if self.z is not None:
@@ -120,7 +120,7 @@ class Sweep(SweepBaseProcedure):
         return results
                 
     def save(self):
-        self.status_bar.value = "Saving data to file"
+        self.status_bar.value = "Saving sweep data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
         np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset, calibration=self.calibration,
@@ -175,7 +175,7 @@ class Sweep1(Sweep):
     def startup(self):
         if self.should_stop():
             return
-        self.status_bar.value = "Creating data structures"
+        self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
@@ -230,7 +230,7 @@ class Sweep2(Sweep):
     def startup(self):
         if self.should_stop():
             return
-        self.status_bar.value = "Creating data structures"
+        self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
@@ -408,6 +408,7 @@ class Noise(MKIDProcedure):
     off_res = BooleanParameter("Take Off Resonance Data", default=True)
     offset = FloatParameter("Frequency Offset", units="MHz", default=-1)
     n_offset = FloatParameter("# of Points", default=10)
+    status_bar = Indicator("Status")
 
     def execute(self):
         if self.should_stop():
@@ -416,6 +417,7 @@ class Noise(MKIDProcedure):
         adc_atten = max(0, self.total_atten - self.attenuation)
         n_samples = int(self.time * self.sample_rate * 1e6)
         for index, _ in enumerate(self.freqs[0, :]):
+            self.status_bar.value = "Taking noise data {:d} / {:d}".format(index + 1, len(self.freqs[0, :]))
             # initialize the system in the right mode
             self.daq.initialize(self.freqs[:, index], dac_atten=self.attenuation, adc_atten=adc_atten,
                                 sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
@@ -439,6 +441,7 @@ class Noise(MKIDProcedure):
         log.info("Finished noise procedure")
         
     def save(self):
+        self.status_bar.value = "Saving noise data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
         np.savez(file_path, freqs=self.freqs, noise=self.noise, f_psd=self.f_psd, psd=self.psd, metadata=self.metadata)
@@ -452,6 +455,7 @@ class Noise(MKIDProcedure):
         self.metadata = {"parameters": {}}
                  
     def compute_psd(self):
+        self.status_bar.value = "Computing PSDs"
         # n_points such that 100 Hz is the minimum possible freq
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
         kwargs = {'nperseg': n_points, 'fs': self.sample_rate * 1e6, 'return_onesided': True,
@@ -479,6 +483,7 @@ class Noise2(Noise):
     def startup(self):
         if self.should_stop():
             return
+        self.status_bar.value = "Creating noise data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting noise procedure")
@@ -536,7 +541,8 @@ class Pulse(MKIDProcedure):
             # get noise kwargs
             noise_kwargs = self.noise_kwargs()
             # run noise procedure
-            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit, **noise_kwargs)
+            self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit,
+                         indicators={"status_bar": self.status_bar}, **noise_kwargs)
 
         # initialize the system in the right mode (laser off)
         self.status_bar.value = "Computing noise level"
@@ -573,7 +579,7 @@ class Pulse(MKIDProcedure):
         log.info("Finished noise procedure")
 
     def save(self):
-        self.status_bar.value = "Saving data to file"
+        self.status_bar.value = "Saving pulse data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
         np.savez(file_path, freqs=self.freqs, pulses=self.pulses, metadata=self.metadata)
@@ -592,7 +598,7 @@ class Pulse2(Pulse):
     def startup(self):
         if self.should_stop():
             return
-        self.status_bar.value = "Creating data structures"
+        self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting noise procedure")
