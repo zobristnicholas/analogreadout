@@ -281,9 +281,8 @@ class Sweep2(Sweep):
             size2 = freqs[0, :].size
         except FileNotFoundError:
             size2 = 1
-            freqs = np.array([(np.nan, np.nan)], dtype=[('I', np.float), ('Q', np.float)])
+            freqs = np.array([[np.nan], [np.nan]])
             psd = np.array([[[(np.nan, np.nan)]], [[(np.nan, np.nan)]]], dtype=[('I', np.float16), ('Q', np.float16)])
-
         # create empty numpy structured array
         size1 = npz_file["freqs"][0, :].size
         size = max(size1, size2)
@@ -523,7 +522,7 @@ class Pulse(MKIDProcedure):
     sigma = FloatParameter("N Sigma Trigger", default=4)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
-    n_samples = IntegerParameter("Data Points per Pulses", default=2000)
+    n_trace = IntegerParameter("Data Points per Pulses", default=2000)
     noise = VectorParameter("Noise", default=[1, 1, 10], ui_class=NoiseInput)
     ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
@@ -549,7 +548,7 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Computing noise level"
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=100 * self.n_samples)
+                            sample_rate=self.sample_rate * 1e6, n_samples=100 * self.n_trace)
         # sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1).squeeze()
 
         # take the data
@@ -558,8 +557,8 @@ class Pulse(MKIDProcedure):
         n_pulses = 0
         plot_condition = 0
         while n_pulses < self.n_pulses:
-            # data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_samples ['I' or 'Q']
-            data = np.random.random_sample((4, 10, self.n_samples))            
+            # data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_trace ['I' or 'Q']
+            data = np.random.random_sample((4, 10, self.n_trace))            
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[::2, :space_left, :]
@@ -616,11 +615,11 @@ class Pulse2(Pulse):
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency1, self.frequency2])
-        self.pulses = np.zeros((2, self.n_pulses, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
+        self.pulses = np.zeros((2, self.n_pulses, self.n_trace), dtype=[('I', np.float16), ('Q', np.float16)])
         self.update_metadata()
         
     def get_pulse_data(self, pulses):
-        data = {"t": np.linspace(0, self.n_samples / self.sample_rate * 1e6, self.n_samples),
+        data = {"t": np.linspace(0, self.n_trace / self.sample_rate * 1e6, self.n_trace),
                 "i1": pulses[0, 0, :],
                 "q1": pulses[1, 0, :],
                 "i2": pulses[2, 0, :],

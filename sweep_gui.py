@@ -11,6 +11,8 @@ from analogreadout.procedures import Sweep2
 from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget, TransmissionPlotWidget,
                          TimePlotWidget, get_image_icon)
                          
+from pulse_gui import pulse_window
+                         
 daq = None
 
 temperature_log = logging.getLogger('temperature')
@@ -44,8 +46,29 @@ def temperature():
     except AttributeError:
         temp = np.nan
     return temp
+    
+    
+def open_pulse_gui(self, experiment):
+    # Only make pulse gui if it hasn't been opened or was closed
+    if self.pulse_window is None or not self.pulse_window.isVisible():
+        logging.getLogger().info("Opening Pulse GUI")
+        self.pulse_window = pulse_window(daq)
+        # make sure pulse window can see sweep window for properly closing daq
+        self.pulse_window.sweep_window = self
+    # set pulse window inputs to the current experiment values
+    sweep_parameters = experiment.procedure.parameter_objects()
+    pulse_parameters = self.pulse_window.make_procedure().parameter_objects()
+    for key, value in sweep_parameters.items():
+        if key in pulse_parameters.keys():
+            pulse_parameters[key] = sweep_parameters[key]
+    self.pulse_window.inputs.set_parameters(pulse_parameters)
+    # show the window
+    self.pulse_window.activateWindow()
+    self.pulse_window.show()
+        
 
 def sweep_window():
+    # setup options
     x_list = (('i1', 'i1_bias'), ('f1',), ('f1_psd', 'f1_psd'),
               ('i2', 'i2_bias'), ('f2',), ('f2_psd', 'f2_psd'))
     y_list = (('q1', 'q1_bias'), ('t1',), ("i1_psd", "q1_psd"),
@@ -61,7 +84,9 @@ def sweep_window():
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
     indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=60, max_length=int(24 * 60))
-
+    # patch the function to open the pulse gui
+    SweepGUI.open_pulse_gui = open_pulse_gui    
+    # make the window
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list,

@@ -29,7 +29,7 @@ def setup_logging():
 
     return log
 
-def pulse_window():
+def pulse_window(other_daq=None):
     x_list = (('t', 't'), ('f1_psd', 'f1_psd'), ('t', 't'), ('f2_psd', 'f2_psd'))
     y_list = (('i1', 'q1'), ('i1_psd', 'q1_psd'), ('i2', 'q2'), ('i2_psd', 'q2_psd'))
     x_label = ("time [µs]", "frequency [Hz]", "time [µs]", "frequency [Hz]")
@@ -42,8 +42,13 @@ def pulse_window():
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     global daq
-    daq = DAQ("UCSB")
-    Pulse2.connect_daq(daq)
+    if other_daq is not None:
+        Pulse2.connect_daq(other_daq)
+    elif daq is not None:
+        Pulse2.connect_daq(daq)
+    else:
+        daq = DAQ("UCSB")
+        Pulse2.connect_daq(daq)
     return w
 
 
