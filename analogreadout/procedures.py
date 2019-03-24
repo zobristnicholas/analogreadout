@@ -78,6 +78,8 @@ class Sweep(SweepBaseProcedure):
                 return
         # record system state after data taking
         self.metadata.update(self.daq.system_state())
+        # compute the noise bias (fit the loop) even if we aren't taking noise data
+        self.compute_noise_bias()
         # take noise data
         if self.noise[0]:
             # get file name kwargs from file_name
@@ -94,6 +96,24 @@ class Sweep(SweepBaseProcedure):
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
+        
+    def fit_data(self):
+        z = self.z - self.z_offset
+        filter_win_length = int(np.round(z.shape[1] / 100.0))
+        if filter_win_length % 2 == 0:
+            filter_win_length += 1
+        if filter_win_length < 3:
+            filter_win_length = 3
+        z_filtered = (sig.savgol_filter(z.real, filter_win_length, 1) +
+                      1j * sig.savgol_filter(z.imag, filter_win_length, 1))
+        velocity = np.abs(np.diff(z_filtered))
+        indices = np.argmax(velocity, axis=-1)
+        df = self.freqs[:, 1] - self.freqs[:, 0]
+        frequencies = self.freqs[range(z.shape[0]), indices] + df / 2
+        return z, frequencies, indices
+        
+    def compute_noise_bias(self):
+        pass
         
     def make_procedure_from_file(self, npz_file):
         # load in the data
@@ -209,6 +229,18 @@ class Sweep1(Sweep):
         records["q"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
         return records
         
+    def compute_noise_bias(self):
+        z, frequencies, indices = self.fit_data()
+        
+        self.noise_bias = np.array([frequencies[0],
+                                    np.mean(z[0, indices[0]: indices[0] + 2].real),
+                                    np.mean(z[0, indices[0]: indices[0] + 2].imag)])
+                                    
+        self.emit("results", {'f_bias': self.noise_bias[0],
+                              't_bias': 20 * np.log10(np.abs(self.noise_bias[1] + 1j * self.noise_bias[2])),
+                              'i_bias': self.noise_bias[1],
+                              'q_bias': self.noise_bias[2]})
+        
     def noise_kwargs(self):
         kwargs = {'directory': self.directory,
                   'attenuation': self.attenuation,
@@ -323,42 +355,32 @@ class Sweep2(Sweep):
 
         return records
         
-    def noise_kwargs(self):
-        # compute resonance frequency
-        z = self.z - self.z_offset
-        filter_win_length = int(np.round(z.shape[1] / 100.0))
-        if filter_win_length % 2 == 0:
-            filter_win_length += 1
-        if filter_win_length < 3:
-            filter_win_length = 3
-        z_filtered = (sig.savgol_filter(z.real, filter_win_length, 1) +
-                      1j * sig.savgol_filter(z.imag, filter_win_length, 1))
-        velocity = np.abs(np.diff(z_filtered))
-        indices = np.argmax(velocity, axis=-1)
-        df = self.freqs[:, 1] - self.freqs[:, 0]
-        frequencies = self.freqs[range(z.shape[0]), indices] + df / 2
-        
+    def compute_noise_bias(self):
+        z, frequencies, indices = self.fit_data()
+
         self.noise_bias = np.array([frequencies[0],
                                     np.mean(z[0, indices[0]: indices[0] + 2].real),
                                     np.mean(z[0, indices[0]: indices[0] + 2].imag),
                                     frequencies[1],
                                     np.mean(z[1, indices[1]: indices[1] + 2].real),
                                     np.mean(z[1, indices[1]: indices[1] + 2].imag)])
-        self.emit("results", {'f1_bias': frequencies[0],
+                                    
+        self.emit("results", {'f1_bias': self.noise_bias[0],
                               't1_bias': 20 * np.log10(np.abs(self.noise_bias[1] + 1j * self.noise_bias[2])),
                               'i1_bias': self.noise_bias[1],
                               'q1_bias': self.noise_bias[2],
-                              'f2_bias': frequencies[1],
+                              'f2_bias': self.noise_bias[3],
                               't2_bias': 20 * np.log10(np.abs(self.noise_bias[4] + 1j * self.noise_bias[5])),
                               'i2_bias': self.noise_bias[4],
                               'q2_bias': self.noise_bias[5]})
         
+    def noise_kwargs(self):        
         kwargs = {'directory': self.directory,
                   'attenuation': self.attenuation,
                   'sample_rate': self.sample_rate,
                   'total_atten': self.total_atten,
-                  'frequency1': frequencies[0],
-                  'frequency2': frequencies[1],
+                  'frequency1': self.noise_bias[0],
+                  'frequency2': self.noise_bias[3],
                   'time': self.noise[1],
                   'n_integrations': self.noise[2],
                   'off_res': bool(self.noise[3]),
