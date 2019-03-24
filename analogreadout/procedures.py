@@ -524,7 +524,7 @@ class Pulse(MKIDProcedure):
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_samples = IntegerParameter("Data Points per Pulses", default=2000)
-    noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -2, 1], ui_class=NoiseInput)
+    noise = VectorParameter("Noise", default=[1, 1, 10], ui_class=NoiseInput)
     ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
     status_bar = Indicator("Status")
@@ -636,7 +636,7 @@ class Pulse2(Pulse):
                   'frequency2': self.frequency2,
                   'time': self.noise[1],
                   'n_integrations': self.noise[2],
-                  'off_res': bool(self.noise[3]),
-                  'offset': self.noise[4],
-                  'n_offset': self.noise[5]}
+                  'off_res': False,
+                  'offset': 0,
+                  'n_offset': 0}
         return kwargs
