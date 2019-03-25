@@ -3,7 +3,7 @@ import logging
 import tempfile
 import warnings
 import numpy as np
-from time import sleep, time
+from time import sleep
 import scipy.signal as sig
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
                          DirectoryParameter, BooleanListInput, Indicator, FloatIndicator)
@@ -571,8 +571,9 @@ class Pulse(MKIDProcedure):
         # initialize the system in the right mode (laser off)
         self.status_bar.value = "Computing noise level"
         adc_atten = max(0, self.total_atten - self.attenuation)
+        n_samples = self.daq.adc.trigger_factor * self.n_trace
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=self.daq.adc.trigger_factor * self.n_trace)
+                            sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float32), ('Q', np.float32)])
         sigma['I'] = np.std(data['I'], axis=-1).flatten()
@@ -585,10 +586,8 @@ class Pulse(MKIDProcedure):
         plot_condition = 0
         while n_pulses < self.n_pulses:
             # channel, n_pulses, n_trace ['I' or 'Q']
-            before = time()
             data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
-            after = time()
-            
+
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
@@ -598,7 +597,7 @@ class Pulse(MKIDProcedure):
             self.emit("progress", n_pulses / self.n_pulses * 100)
 
             for index, count_rate in enumerate(self.count_rates):
-                count_rate.value = np.sum(triggers[index, :]) / (after - before)
+                count_rate.value = np.sum(triggers[index, :]) / (n_samples / (self.sample_rate * 1e6))
                 
             if n_pulses > plot_condition:
                 pulses = self.get_pulse_data(data, triggers)
@@ -641,7 +640,6 @@ class Pulse2(Pulse):
     count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
     count_rates = [count_rate1, count_rate2]
 
-    
     DATA_COLUMNS = ["t", "i1", "q1", "i2", "q2", 'i1_psd', 'q1_psd', 'f1_psd', 'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
