@@ -3,30 +3,44 @@ import re
 import sys
 import numpy as np
 from datetime import datetime
-from pymeasure.display.Qt import QtGui
+from collections import deque
+from pymeasure.display.Qt import QtGui, QtCore
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Pulse2
-from mkidplotter import (PulseGUI, PulsePlotWidget, NoisePlotWidget, TimePlotWidget, get_image_icon)
+from mkidplotter import (PulseGUI, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
                          
 daq = None
-indicators = None  # TODO: plot in both guis from the same memory with two different widgets
+temperature_updator = None
 
 temperature_log = logging.getLogger('temperature')
 temperature_log.addHandler(logging.NullHandler())
 
+time_stamps = deque(maxlen=int(24 * 60))  # one day of data if refresh time is every minute
+temperatures = deque(maxlen=int(24 * 60))
+refresh_time = 60  # refresh temperature every minute
 
-def temperature():
-    try:
-        temperatures = []
-        for _ in range(10):
-            temperatures.append(daq.thermometer.temperature * 1000)
-        temp = np.median(temperatures)
-        temperature_log.info(str(temp) + ' mK')
-    except AttributeError:
-        temp = np.nan
-    return temp
+    
+class TemperatureUpdator(QtCore.QObject):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update)
+        self.timer.start(refresh_time * 1000)  # update every refresh time minutes
+        
+    def update(self):
+        try:
+            temp_list = []
+            for _ in range(10):
+                temp_list.append(daq.thermometer.temperature * 1000)
+            temp = np.median(temp_list)
+            if not np.isnan(temp):
+                time_stamps.append(datetime.now().timestamp())
+                temperatures.append(temp)
+                temperature_log.info(str(temp) + ' mK')
+        except AttributeError:
+            pass     
 
 
 def setup_logging():
@@ -55,10 +69,10 @@ def pulse_window():
     legend_list = (('I', 'Q'), ('I', 'Q'), ('I', 'Q'), ('I', 'Q'))
     widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
-    global indicators
-    if indicators is None:
-        indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=60,
-                                    max_length=int(24 * 60))
+    indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
+    global temperature_updator
+    if temperature_updator is None:
+        temperature_updator = TemperatureUpdator()
 
     w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list, plot_names=names_list,

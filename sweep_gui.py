@@ -5,7 +5,7 @@ from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Sweep2
 from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget, TransmissionPlotWidget,
-                         TimePlotWidget, get_image_icon)
+                         TimePlotIndicator, get_image_icon)
          
 import pulse_gui                
 # from pulse_gui import pulse_window, temperature, setup_logging, daq, indicators
@@ -40,29 +40,26 @@ def open_pulse_gui(self, experiment):
 
 def sweep_window():
     # setup options
-    x_list = (('i1', 'i1_bias'), ('f1',), ('f1_psd', 'f1_psd'),
-              ('i2', 'i2_bias'), ('f2',), ('f2_psd', 'f2_psd'))
-    y_list = (('q1', 'q1_bias'), ('t1',), ("i1_psd", "q1_psd"),
-              ('q2', 'q2_bias'), ('t2',), ("i2_psd", "q2_psd"))
-    x_label = ("I [V]", "frequency [GHz]", "frequency [Hz]",
-               "I [V]", "frequency [GHz]", "frequency [Hz]")
-    y_label = ("Q [V]", "|S21| [dBm]", "PSD [V² / Hz]",
-               "Q [V]", "|S21| [dBm]", "PSD [V² / Hz]")
+    x_list = (('i1', 'i1_bias'), ('f1',), ('f1_psd', 'f1_psd'), ('i2', 'i2_bias'), ('f2',), ('f2_psd', 'f2_psd'))
+    y_list = (('q1', 'q1_bias'), ('t1',), ("i1_psd", "q1_psd"), ('q2', 'q2_bias'), ('t2',), ("i2_psd", "q2_psd"))
+    x_label = ("I [V]", "frequency [GHz]", "frequency [Hz]", "I [V]", "frequency [GHz]", "frequency [Hz]")
+    y_label = ("Q [V]", "|S21| [dBm]", "PSD [V² / Hz]", "Q [V]", "|S21| [dBm]", "PSD [V² / Hz]")
     legend_list = (('loop', 'bias point'), None, ('I', 'Q'),
                    ('loop', 'bias point'), None, ('I', 'Q'))
     widgets_list = (SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget,
                     SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
-    pulse_gui.indicators = TimePlotWidget(pulse_gui.temperature, title='Device Temperature [mK]', refresh_time=60,
-                                          max_length=int(24 * 60))
+    indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
+    if pulse_gui.temperature_updator is None:
+        pulse_gui.temperature_updator = pulse_gui.TemperatureUpdator()
     # patch the function to open the pulse gui
     SweepGUI.open_pulse_gui = open_pulse_gui    
     # make the window
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list,
-                 plot_names=names_list, log_level="INFO", persistent_indicators=pulse_gui.indicators)
+                 plot_names=names_list, log_level="INFO", persistent_indicators=indicators)
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     pulse_gui.daq = DAQ("UCSB")
