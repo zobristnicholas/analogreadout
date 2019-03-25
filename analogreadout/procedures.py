@@ -49,7 +49,7 @@ class Sweep(SweepBaseProcedure):
             self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf,
                                 sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # loop through the frequencies and take data
-        self.status_bar.value = "Offset Calibration"
+        self.status_bar.value = "Calibrating IQ mixer offset"
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
             if index == 0:
@@ -389,7 +389,7 @@ class Sweep2(Sweep):
         return kwargs
         
     def calibrate(self):
-        self.status_bar.value = "Collecting IQ mixer calibration"
+        self.status_bar.value = "Calibrating IQ mixer phase and amplitude imbalance"
         # initialize in noise data mode
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation, adc_atten=adc_atten,
@@ -571,7 +571,7 @@ class Pulse(MKIDProcedure):
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
                             sample_rate=self.sample_rate * 1e6, n_samples=100 * self.n_trace)
-        # sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1).squeeze()
+        sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1)
 
         # take the data
         self.status_bar.value = "Taking pulse data"
@@ -579,8 +579,8 @@ class Pulse(MKIDProcedure):
         n_pulses = 0
         plot_condition = 0
         while n_pulses < self.n_pulses:
-            # data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_trace ['I' or 'Q']
-            data = np.random.random_sample((4, 10, self.n_trace))            
+            data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_trace ['I' or 'Q']
+            # data = np.random.random_sample((4, 10, self.n_trace))            
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[::2, :space_left, :]

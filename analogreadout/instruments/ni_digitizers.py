@@ -81,7 +81,8 @@ class NI6120:
         time_indices = np.where(logic)[1]
         ii = 0
         for time_index in time_indices:
-            data[:, ii, :] = sample[:, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
+            data[:, ii, :]['I'] = sample[::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
+            data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]            
             ii += 1
         return data
 

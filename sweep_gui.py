@@ -1,58 +1,20 @@
 import os
-import re
 import sys
-import logging
-from logging.handlers import TimedRotatingFileHandler
-from datetime import datetime
 import numpy as  np
 from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Sweep2
 from mkidplotter import (SweepGUI, SweepGUIProcedure2, SweepPlotWidget, NoisePlotWidget, TransmissionPlotWidget,
                          TimePlotWidget, get_image_icon)
+         
+import pulse_gui                
+# from pulse_gui import pulse_window, temperature, setup_logging, daq, indicators
                          
-from pulse_gui import pulse_window
-                         
-daq = None
 
-temperature_log = logging.getLogger('temperature')
-temperature_log.addHandler(logging.NullHandler())
-
-
-def setup_logging():
-    log = logging.getLogger()
-    directory = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
-    if not os.path.isdir(directory):
-        os.mkdir(directory)
-    file_name = datetime.now().strftime("sweep_%y%m%d.log")
-    file_path = os.path.join(directory, file_name)
-    handler = TimedRotatingFileHandler(file_path, when="midnight")
-    handler.suffix = "%Y%m%d"
-    handler.extMatch = re.compile(r"^\d{8}$")
-    handler.setLevel("INFO")
-    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%I:%M:%S %p')
-    handler.setFormatter(log_format)
-    log.addHandler(handler)
-
-    return log
-
-def temperature():
-    try:
-        temperatures = []
-        for _ in range(10):
-            temperatures.append(daq.thermometer.temperature * 1000)
-        temp = np.median(temperatures)
-        temperature_log.info(str(temp) + ' mK')
-    except AttributeError:
-        temp = np.nan
-    return temp
-    
-    
 def open_pulse_gui(self, experiment):
     # Only make pulse gui if it hasn't been opened or was closed
     if self.pulse_window is None or not self.pulse_window.isVisible():
-        logging.getLogger().info("Opening Pulse GUI")
-        self.pulse_window = pulse_window(daq)
+        self.pulse_window = pulse_gui.pulse_window()
         # make sure pulse window can see sweep window for properly closing daq
         self.pulse_window.sweep_window = self
     # set pulse window inputs to the current experiment values
@@ -66,8 +28,10 @@ def open_pulse_gui(self, experiment):
     file_name = experiment.data_filename
     npz_file = np.load(os.path.join(directory, file_name))
     noise_bias = npz_file['noise_bias']
-    pulse_parameters['frequency1'].value = noise_bias[0]
-    pulse_parameters['frequency2'].value = noise_bias[3]
+    if noise_bias[0]:  # fit might not have been done
+        pulse_parameters['frequency1'].value = noise_bias[0]
+    if noise_bias[3]:
+        pulse_parameters['frequency2'].value = noise_bias[3]
     self.pulse_window.inputs.set_parameters(pulse_parameters)
     # show the window
     self.pulse_window.activateWindow()
@@ -90,25 +54,25 @@ def sweep_window():
                     SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
-    indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=60, max_length=int(24 * 60))
+    pulse_gui.indicators = TimePlotWidget(pulse_gui.temperature, title='Device Temperature [mK]', refresh_time=10,
+                                          max_length=int(24 * 60))
     # patch the function to open the pulse gui
     SweepGUI.open_pulse_gui = open_pulse_gui    
     # make the window
     w = SweepGUI(Sweep2, base_procedure_class=SweepGUIProcedure2, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list,
-                 plot_names=names_list, log_level="INFO", persistent_indicators=indicators)
+                 plot_names=names_list, log_level="INFO", persistent_indicators=pulse_gui.indicators)
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
-    global daq
-    daq = DAQ("UCSB")
-    Sweep2.connect_daq(daq)
+    pulse_gui.daq = DAQ("UCSB")
+    Sweep2.connect_daq(pulse_gui.daq)
     return w
 
 
 if __name__ == '__main__':
     # TODO: implement JPL/UCSB configuration switching
-    setup_logging()
+    pulse_gui.setup_logging()
     app = QtGui.QApplication(sys.argv)
     app.setWindowIcon(get_image_icon("loop.png"))
     window = sweep_window()
