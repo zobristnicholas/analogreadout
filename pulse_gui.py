@@ -57,7 +57,7 @@ def pulse_window():
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
     global indicators
     if indicators is None:
-        indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=10,
+        indicators = TimePlotWidget(temperature, title='Device Temperature [mK]', refresh_time=60,
                                     max_length=int(24 * 60))
 
     w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,

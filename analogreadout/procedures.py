@@ -3,10 +3,10 @@ import logging
 import tempfile
 import warnings
 import numpy as np
-from time import sleep
+from time import sleep, time
 import scipy.signal as sig
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
-                         DirectoryParameter, BooleanListInput, Indicator)
+                         DirectoryParameter, BooleanListInput, Indicator, FloatIndicator)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
 
@@ -549,6 +549,8 @@ class Pulse(MKIDProcedure):
     ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
     status_bar = Indicator("Status")
+    
+    count_rates = []
 
     def execute(self):
         if self.should_stop():
@@ -570,8 +572,11 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Computing noise level"
         adc_atten = max(0, self.total_atten - self.attenuation)
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=100 * self.n_trace)
-        sigma = np.std(self.daq.adc.take_noise_data(1), axis=-1)
+                            sample_rate=self.sample_rate * 1e6, n_samples=self.daq.adc.trigger_factor * self.n_trace)
+        data = self.daq.adc.take_noise_data(1)
+        sigma = np.zeros(data.shape[0], dtype=[('I', np.float32), ('Q', np.float32)])
+        sigma['I'] = np.std(data['I'], axis=-1).flatten()
+        sigma['Q'] = np.std(data['Q'], axis=-1).flatten()
 
         # take the data
         self.status_bar.value = "Taking pulse data"
@@ -579,20 +584,26 @@ class Pulse(MKIDProcedure):
         n_pulses = 0
         plot_condition = 0
         while n_pulses < self.n_pulses:
-            data = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)  # channel, n_pulses, n_trace ['I' or 'Q']
-            # data = np.random.random_sample((4, 10, self.n_trace))            
+            # channel, n_pulses, n_trace ['I' or 'Q']
+            before = time()
+            data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
+            after = time()
+            
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
-            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[::2, :space_left, :]
-            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[1::2, :space_left, :]
+            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
+            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
 
             n_pulses += new_pulses
             self.emit("progress", n_pulses / self.n_pulses * 100)
 
+            for index, count_rate in enumerate(self.count_rates):
+                count_rate.value = np.sum(triggers[index, :]) / (after - before)
+                
             if n_pulses > plot_condition:
-                pulses = self.get_pulse_data(data)
+                pulses = self.get_pulse_data(data, triggers)
                 self.emit('results', pulses, clear=True)
-                plot_condition += 500
+                plot_condition += 100
             sleep(.1)
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -626,6 +637,11 @@ class Pulse2(Pulse):
     frequency1 = FloatParameter("Channel 1 Bias Frequency", units="GHz", default=4.0)
     frequency2 = FloatParameter("Channel 2 Bias Frequency", units="GHz", default=4.0)
     
+    count_rate1 = FloatIndicator("Channel 1 Count Rate", units="Hz", default=0)
+    count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
+    count_rates = [count_rate1, count_rate2]
+
+    
     DATA_COLUMNS = ["t", "i1", "q1", "i2", "q2", 'i1_psd', 'q1_psd', 'f1_psd', 'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
@@ -640,12 +656,12 @@ class Pulse2(Pulse):
         self.pulses = np.zeros((2, self.n_pulses, self.n_trace), dtype=[('I', np.float16), ('Q', np.float16)])
         self.update_metadata()
         
-    def get_pulse_data(self, pulses):
-        data = {"t": np.linspace(0, self.n_trace / self.sample_rate * 1e6, self.n_trace),
-                "i1": pulses[0, 0, :],
-                "q1": pulses[1, 0, :],
-                "i2": pulses[2, 0, :],
-                "q2": pulses[3, 0, :]}
+    def get_pulse_data(self, pulses, triggers):
+        data = {"t": np.linspace(0, self.n_trace / self.sample_rate, self.n_trace),  # in us
+                "i1": pulses['I'][0, np.argmax(triggers[0, :]), :],
+                "q1": pulses['Q'][0, np.argmax(triggers[0, :]), :],
+                "i2": pulses['I'][1, np.argmax(triggers[1, :]), :],
+                "q2": pulses['Q'][1, np.argmax(triggers[1, :]), :]}
         return data
         
     def noise_kwargs(self):

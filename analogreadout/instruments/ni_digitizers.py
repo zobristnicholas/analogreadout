@@ -34,6 +34,8 @@ class NI6120:
         self.sample_rate = 8.0e5  # samples per second
         # set default number of samples per channel
         self.samples_per_channel = 2e4
+        # set trace / collection ratio for pulse data
+        self.trigger_factor = 100
         # collect more data than requested at a time to trigger on pulses
         log.info("Connected to: National Instruments PCI-6120")
 
@@ -52,39 +54,43 @@ class NI6120:
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
             sleep(rand_time)
             sample = self._acquire_readings()
-            for ind in range(n_channels):
-                data[ind, index, :]['I'] = sample[2 * ind, :]
-                data[ind, index, :]['Q'] = sample[2 * ind + 1, :]
+            data[:, index, :]['I'] = sample[::2, :]
+            data[:, index, :]['Q'] = sample[1::2, :]
         return data
         
     def take_pulse_data(self, trigger_level, n_sigma=4):
-        # TODO: make this function work
         # initialize data array
-        n_channels = len(self.channels)
+        n_channels = int(len(self.channels) / 2)
         n_samples = int(self.samples_per_channel / self.trigger_factor)
         # collect data
-        n_pulses = 0
         sample = self._acquire_readings()
+        # turn the trigger level into a sigma
+        sigma = np.zeros((sample.shape[0], 1))
+        sigma[::2, 0] = trigger_level['I']
+        sigma[1::2, 0] = trigger_level['Q']
         # time ordered pulse indices
-        logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * trigger_level
+        logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * sigma
         # enforce one trigger per n_samples
         for index, value in enumerate(logic.T):
-            if value:
+            if value.any():
                 previous_triggers = np.any(logic[:, index - n_samples: index])
                 beginning_trigger = index < n_samples // 2
                 ending_trigger = index > self.samples_per_channel - n_samples // 2
                 if previous_triggers or beginning_trigger or ending_trigger:
                     logic[:, index] = False
-        # put triggers in dataset
+        # create array of trigger channels
         n_triggers = int(np.sum(logic))
+        triggers = np.zeros((n_channels, n_triggers))
+        # put triggers in dataset
         data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        time_indices = np.where(logic)[1]
+        trigger_indices = np.where(logic)
         ii = 0
-        for time_index in time_indices:
+        for index, time_index in enumerate(trigger_indices[1]):
+            triggers[trigger_indices[0][index] // 2, ii] = True
             data[:, ii, :]['I'] = sample[::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
             data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]            
             ii += 1
-        return data
+        return data, triggers
 
     def take_iq_point(self):
         channel_data = self._acquire_readings()

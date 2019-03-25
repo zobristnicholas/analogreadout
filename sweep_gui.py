@@ -54,7 +54,7 @@ def sweep_window():
                     SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
-    pulse_gui.indicators = TimePlotWidget(pulse_gui.temperature, title='Device Temperature [mK]', refresh_time=10,
+    pulse_gui.indicators = TimePlotWidget(pulse_gui.temperature, title='Device Temperature [mK]', refresh_time=60,
                                           max_length=int(24 * 60))
     # patch the function to open the pulse gui
     SweepGUI.open_pulse_gui = open_pulse_gui    
