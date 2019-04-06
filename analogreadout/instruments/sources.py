@@ -29,6 +29,7 @@ class LaserBox:
     def set_state(self, state):
         # convert to bytes (first digit is the flipper that isn't used here)
         state = b'0' + b''.join(str(int(s)).encode() for s in state)
+        assert len(state) == 6, "'state' argument must be a length 5 iterable of booleans"
         self.socket.sendto(state, self.address)
         try:
             returned_state, address = self.socket.recvfrom(self.buffer_size)
