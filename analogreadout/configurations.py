@@ -49,7 +49,9 @@ def ucsb_config():
     sensor_config = {"thermometer": {"instrument": "LakeShore370AC",
                                      "arguments": (thermometer_address, channel, scanner),
                                      "location": "resistance_bridges"}}
-    source_config = {"laser": {"instrument": "LaserBox", "arguments": (), "location": "sources"}}
+    source_config = {"laser": {"instrument": "LaserBox",
+                               "arguments": ('10.200.130.7', 8888),
+                               "location": "sources"}}
     procedure_config = {"sweep": "Sweep2", "noise": "Noise2", "pulse": "Pulse2"}
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
                      "procedures": procedure_config, "sources": source_config}
