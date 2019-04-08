@@ -1,5 +1,6 @@
 import visa
 import logging
+import threading
 import numpy as np
 from time import sleep
 from slave.types import Integer
@@ -17,6 +18,7 @@ Integer.__convert__ = lambda self, value: int(float(value))
 
 class LakeShore370AC(LS370):
     WAIT_MEASURE = 0.15
+    LOCK = threading.Lock()
 
     def __init__(self, address, channel, scanner=None):
         self.channel = channel
@@ -50,15 +52,17 @@ class LakeShore370AC(LS370):
     @property
     def temperature(self):
         # TODO: it would be nice to write to the 'temperature' log here
-        temp = self.input[self.channel - 1].kelvin
-        sleep(self.WAIT_MEASURE)
-        return temp
+        with self.LOCK:
+            temp = self.input[self.channel - 1].kelvin
+            sleep(self.WAIT_MEASURE)
+            return temp
     
     @property
     def resistance(self):
-        res = self.input[self.channel - 1].resistance
-        sleep(self.WAIT_MEASURE)
-        return res
+        with self.LOCK:
+            res = self.input[self.channel - 1].resistance
+            sleep(self.WAIT_MEASURE)
+            return res
         
     def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
         if max_wait <= 0 or self.calibration(temperature) <= 0 or self._set_point == temperature:
