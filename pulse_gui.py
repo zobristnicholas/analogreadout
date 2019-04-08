@@ -9,7 +9,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Pulse2
-from mkidplotter import (PulseGUI, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
+from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
                          
 daq = None
 temperature_updator = None
@@ -33,19 +33,14 @@ class TemperatureUpdator(QtCore.QObject):
         
     def update(self):
         try:
-            temp_list = []
-            res_list = []
-            for _ in range(10):
-                temp_list.append(daq.thermometer.temperature * 1000)
-                res_list.append(daq.thermometer.resistance)
-            temp = np.median(temp_list)
-            res = np.median(res_list)
+            temp = daq.thermometer.temperature * 1000
+            res = daq.thermometer.resistance
             if not np.isnan(temp):
                 time_stamps.append(datetime.now().timestamp())
                 temperatures.append(temp)
                 temperature_log.info(str(temp) + ' mK')
             if not np.isnan(res):
-                resistance_log.info(str(res) + "Ohm")
+                resistance_log.info(str(res) + " Ohm")
         except AttributeError:
             pass     
 
@@ -69,11 +64,11 @@ def setup_logging():
 
     
 def pulse_window():
-    x_list = (('t', 't'), ('f1_psd', 'f1_psd'), ('t', 't'), ('f2_psd', 'f2_psd'))
-    y_list = (('i1', 'q1'), ('i1_psd', 'q1_psd'), ('i2', 'q2'), ('i2_psd', 'q2_psd'))
-    x_label = ("time [µs]", "frequency [Hz]", "time [µs]", "frequency [Hz]")
-    y_label = ("Signal [V]", "PSD [V² / Hz]", "Signal [V]", "PSD [V² / Hz]")
-    legend_list = (('I', 'Q'), ('I', 'Q'), ('I', 'Q'), ('I', 'Q'))
+    x_list = (('i1_loop', 'i1'), ('f1_psd', 'f1_psd'), ('i2_loop', 'i2'), ('f2_psd', 'f2_psd'))
+    y_list = (('q1_loop', 'q1'), ('i1_psd', 'q1_psd'), ('q2_loop', 'q2'), ('i2_psd', 'q2_psd'))
+    x_label = ("I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]")
+    y_label = ("Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]")
+    legend_list = (('Loop', 'Data'), ('I', 'Q'), ('Loop', 'Data'), ('I', 'Q'))
     widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
