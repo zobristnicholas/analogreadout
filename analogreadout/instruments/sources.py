@@ -24,9 +24,12 @@ class LaserBox:
         log.info("Connected to: Five Laser Box at %s port %s", ip, port)
 
     def initialize(self, state):
+        if state is None:
+            state = self.OFF_STATE
         self.set_state(state)
 
     def set_state(self, state):
+        log.debug("Setting laser state to {}".format(state))
         # convert to bytes (first digit is the flipper that isn't used here)
         state = b'0' + b''.join(str(int(s)).encode() for s in state)
         assert len(state) == 6, "'state' argument must be a length 5 iterable of booleans"

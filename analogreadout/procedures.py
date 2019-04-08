@@ -607,6 +607,8 @@ class Pulse(MKIDProcedure):
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
+        # turn laser off
+        self.daq.laser.set_state(self.daq.laser.OFF_STATE)
         # record system state after data taking
         self.metadata.update(self.daq.system_state())
 
