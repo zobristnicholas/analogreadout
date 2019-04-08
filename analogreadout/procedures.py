@@ -602,7 +602,10 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
         n_pulses = 0
+        n_plot = 0
         while n_pulses < self.n_pulses:
+            n_plot += 1
+            
             # channel, n_pulses, n_trace ['I' or 'Q']
             data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
 
@@ -616,9 +619,11 @@ class Pulse(MKIDProcedure):
 
             for index, count_rate in enumerate(self.count_rates):
                 count_rate.value = np.sum(triggers[index, :]) / (n_samples / (self.sample_rate * 1e6))
-                
-            pulses = self.get_pulse_data(data, triggers)
-            self.emit('results', pulses, clear=True)
+
+            if n_plot * self.integration_time >= 10:  # plot every 10 seconds
+                pulses = self.get_pulse_data(data, triggers)
+                self.emit('results', pulses, clear=True)
+                n_plot = 0
 
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
