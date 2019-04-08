@@ -35,16 +35,16 @@ class NI6120:
         # set default number of samples per channel
         self.samples_per_channel = 2e4
         # set trace / collection ratio for pulse data
-        self.trigger_factor = 100
+        self.samples_per_partition = 2000
         # collect more data than requested at a time to trigger on pulses
         log.info("Connected to: National Instruments PCI-6120")
 
-    def initialize(self, channels=None, sample_rate=None, n_samples=None):
+    def initialize(self, channels=None, sample_rate=None, n_samples=None, n_trace=None):
         self.reset()
         self._create_channels(channels=channels)
         self._set_channel_coupling()
         self._disable_aa_filter()
-        self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples)
+        self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples, n_trace=n_trace)
 
     def take_noise_data(self, n_triggers):
         n_channels = int(len(self.channels) / 2)
@@ -61,7 +61,7 @@ class NI6120:
     def take_pulse_data(self, trigger_level, n_sigma=4):
         # initialize data array
         n_channels = int(len(self.channels) / 2)
-        n_samples = int(self.samples_per_channel / self.trigger_factor)
+        n_samples = int(self.samples_per_partition)
         # collect data
         sample = self._acquire_readings()
         # turn the trigger level into a sigma
@@ -144,7 +144,7 @@ class NI6120:
                                                      DAQmx_Val_Volts, None) or error
         return error
 
-    def _configure_sampling(self, sample_rate=None, n_samples=None):
+    def _configure_sampling(self, sample_rate=None, n_samples=None, n_trace=None):
         """
         Configures the sampling.
         """
@@ -153,6 +153,9 @@ class NI6120:
 
         if n_samples is not None:
             self.samples_per_channel = n_samples
+            
+        if n_trace is not None:
+            self.samples_per_partition = n_trace
 
         error = self.session.CfgSampClkTiming("", np.int(self.sample_rate),
                                               DAQmx_Val_Rising, DAQmx_Val_FiniteSamps,

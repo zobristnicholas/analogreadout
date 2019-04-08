@@ -544,7 +544,9 @@ class Pulse(MKIDProcedure):
     directory = DirectoryParameter("Data Directory")
     attenuation = FloatParameter("DAC Attenuation", units="dB")
     sample_rate = FloatParameter("Sampling Rate", units="MHz", default=0.8)
+    
     sigma = FloatParameter("N Sigma Trigger", default=4)
+    integration_time = FloatParameter("Time Per Integration", units="s", default=1)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_trace = IntegerParameter("Data Points per Pulses", default=2000)
@@ -565,18 +567,16 @@ class Pulse(MKIDProcedure):
             # get file name kwargs from file_name
             file_name_kwargs = self.file_name_parts()
             file_name_kwargs["prefix"] = "noise"
-            # get noise kwargs
-            noise_kwargs = self.noise_kwargs()
             # run noise procedure
             self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit,
-                         indicators={"status_bar": self.status_bar}, **noise_kwargs)
+                         indicators={"status_bar": self.status_bar}, **self.noise_kwargs())
 
         # initialize the system in the right mode (laser off)
         self.status_bar.value = "Computing noise level"
         adc_atten = max(0, self.total_atten - self.attenuation)
-        n_samples = self.daq.adc.trigger_factor * self.n_trace
+        n_samples = int(self.integration_time * self.sample_rate * 1e6)
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
+                            sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float32), ('Q', np.float32)])
         sigma['I'] = np.std(data['I'], axis=-1).flatten()

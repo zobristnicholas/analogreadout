@@ -205,7 +205,7 @@ class DAQ:
         return take_pulse_data(self.daq, *args, **kwargs)
         
     def initialize(self, frequency, power=None, dac_atten=0, adc_atten=0,
-                   sample_rate=None, n_samples=None, channels=None, laser_state=None):
+                   sample_rate=None, n_samples=None, n_trace=None, channels=None, laser_state=None):
         """
         Initialize all of the instruments according to their initialize methods.
         Args:
@@ -217,6 +217,7 @@ class DAQ:
                 The sample rate may be variable or only able to take one value depending
                 on the hardware.
             n_samples: samples per ADC acquisition (optional, default depends on ADC)
+            n_trace: samples per ADC acquisition trace (optional, typically used for pulse data)
             channels: ADC channels to take data with (optional, default depends on ADC)
             laser_state: state of the laser to initialize (optional, default depends on laser)
         """
@@ -225,7 +226,7 @@ class DAQ:
         if power is None:
             power = self.config['dac']['dac']['power']
         self.dac.initialize(frequency, power)
-        self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples, channels=channels)
+        self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples, channels=channels, n_trace=n_trace)
         self.thermometer.initialize()
         self.primary_amplifier.initialize()
         self.laser.initialize(laser_state)
