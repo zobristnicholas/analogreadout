@@ -36,7 +36,7 @@ class LaserBox:
             assert state == returned_state
             assert address == self.address
         except (socket.timeout, AssertionError) as e:
-            print(e)
+            log.exception(e)
             raise RuntimeError("Laser box state not confirmed")
 
     def close(self):
