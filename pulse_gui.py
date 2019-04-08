@@ -16,6 +16,8 @@ temperature_updator = None
 
 temperature_log = logging.getLogger('temperature')
 temperature_log.addHandler(logging.NullHandler())
+resistance_log = logging.getLogger('resistance')
+resistance_log.addHandler(logging.NullHandler())
 
 time_stamps = deque(maxlen=int(24 * 60))  # one day of data if refresh time is every minute
 temperatures = deque(maxlen=int(24 * 60))
@@ -32,13 +34,18 @@ class TemperatureUpdator(QtCore.QObject):
     def update(self):
         try:
             temp_list = []
+            res_list = []
             for _ in range(10):
                 temp_list.append(daq.thermometer.temperature * 1000)
+                res_list.append(daq.thermometer.resistance)
             temp = np.median(temp_list)
+            res = np.median(res_list)
             if not np.isnan(temp):
                 time_stamps.append(datetime.now().timestamp())
                 temperatures.append(temp)
                 temperature_log.info(str(temp) + ' mK')
+            if not np.isnan(res):
+                resistance_log.info(str(res) + "Ohm")
         except AttributeError:
             pass     
 

@@ -198,6 +198,7 @@ class Sweep1(Sweep):
             return
         self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name='resistance', file_name='resistance.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
@@ -265,6 +266,7 @@ class Sweep2(Sweep):
             return
         self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name='resistance', file_name='resistance.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
@@ -507,6 +509,7 @@ class Noise2(Noise):
             return
         self.status_bar.value = "Creating noise data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name='resistance', file_name='resistance.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
@@ -649,6 +652,7 @@ class Pulse2(Pulse):
             return
         self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
+        self.setup_procedure_log(name='resistance', file_name='resistance.log')
         self.setup_procedure_log(name=__name__, file_name='procedure.log')
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
