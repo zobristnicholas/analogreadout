@@ -3,10 +3,9 @@ import logging
 import tempfile
 import warnings
 import numpy as np
-from time import sleep
 import scipy.signal as sig
-from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
-                         DirectoryParameter, BooleanListInput, Indicator, FloatIndicator)
+from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
+                         Indicator, FloatIndicator, FileParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
 
@@ -115,12 +114,13 @@ class Sweep(SweepBaseProcedure):
     def compute_noise_bias(self):
         pass
         
-    def make_procedure_from_file(self, npz_file):
+    @classmethod
+    def make_procedure_from_file(cls, npz_file):
         # load in the data
         metadata = npz_file['metadata'].item()
         parameter_dict = metadata['parameters']
         # make a procedure object with the right parameters
-        procedure = self.__class__()
+        procedure = cls()
         for name, value in parameter_dict.items():
             setattr(procedure, name, value)
         procedure.refresh_parameters()  # Enforce update of meta data
@@ -155,19 +155,20 @@ class Sweep(SweepBaseProcedure):
         self.calibration = None
         self.noise_bias = None
         self.metadata = {"parameters": {}}
-                 
-    def load(self, file_path):
+           
+    @classmethod
+    def load(cls, file_path):
         """
         Load the procedure output into a pymeasure Results class instance for the GUI.
         """
         # load in the data
         npz_file = np.load(file_path)
         # create empty numpy structured array
-        procedure = self.make_procedure_from_file(npz_file)
+        procedure = cls.make_procedure_from_file(npz_file)
         # make array with data
-        records = self.make_record_array(npz_file)
+        records = cls.make_record_array(npz_file)
         # make a temporary file for the gui data
-        results = self.make_results(records, procedure)
+        results = cls.make_results(records, procedure)
         return results
             
     def startup(self):
@@ -179,7 +180,8 @@ class Sweep(SweepBaseProcedure):
     def get_sweep_data(self, index):
         raise NotImplementedError
         
-    def make_record_array(self, npz_file):
+    @classmethod
+    def make_record_array(cls, npz_file):
         raise NotImplementedError
         
     def noise_kwargs(self):
@@ -218,10 +220,11 @@ class Sweep1(Sweep):
                 "q": self.z[0, index].imag - self.z_offset[0, index].imag}
         return data
 
-    def make_record_array(self, npz_file):
+    @classmethod
+    def make_record_array(cls, npz_file):
         # create empty numpy structured array
         size = npz_file["freqs"][0, :].size
-        dt = list(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))
+        dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
         # fill array
@@ -302,7 +305,8 @@ class Sweep2(Sweep):
                 "t2": t2}
         return data
     
-    def make_record_array(self, npz_file):
+    @classmethod
+    def make_record_array(cls, npz_file):
         # get noise data
         try:
             noise_file = os.path.basename(npz_file.fid.name).split("_")
@@ -320,7 +324,7 @@ class Sweep2(Sweep):
         # create empty numpy structured array
         size1 = npz_file["freqs"][0, :].size
         size = max(size1, size2)
-        dt = list(zip(self.DATA_COLUMNS, [float] * len(self.DATA_COLUMNS)))
+        dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
         # fill array
@@ -540,8 +544,10 @@ class Pulse(MKIDProcedure):
     # outputs
     freqs = None
     pulses = None
+    offset = None
 
     directory = DirectoryParameter("Data Directory")
+    sweep_file = FileParameter("Sweep File")
     attenuation = FloatParameter("DAC Attenuation", units="dB")
     sample_rate = FloatParameter("Sampling Rate", units="MHz", default=0.8)
     
@@ -571,17 +577,27 @@ class Pulse(MKIDProcedure):
             self.daq.run("noise", file_name_kwargs, should_stop=self.should_stop, emit=self.emit,
                          indicators={"status_bar": self.status_bar}, **self.noise_kwargs())
 
-        # initialize the system in the right mode (laser off)
-        self.status_bar.value = "Computing noise level"
         adc_atten = max(0, self.total_atten - self.attenuation)
         n_samples = int(self.integration_time * self.sample_rate * 1e6)
+        self.status_bar.value = "Calibrating IQ mixer offset"
+        # take zero point
+        with warnings.catch_warnings():
+            # ignoring warnings for setting infinite attenuation
+            warnings.simplefilter("ignore", UserWarning)
+            self.daq.initialize(self.freqs, dac_atten=np.inf, adc_atten=np.inf,
+                                sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
+        zero = self.daq.adc.take_iq_point()
+        self.offset['I'] = zero.real
+        self.offset['Q'] = zero.imag
+
+        # initialize the system in the right mode (laser off)
+        self.status_bar.value = "Computing noise level"
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
                             sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float32), ('Q', np.float32)])
         sigma['I'] = np.std(data['I'], axis=-1).flatten()
         sigma['Q'] = np.std(data['Q'], axis=-1).flatten()
-
         # take the data
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
@@ -622,7 +638,7 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Saving pulse data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
-        np.savez(file_path, freqs=self.freqs, pulses=self.pulses, metadata=self.metadata)
+        np.savez(file_path, freqs=self.freqs, pulses=self.pulses, zero=self.offset, metadata=self.metadata)
 
     def clean_up(self):
         self.status_bar.value = ""
@@ -642,11 +658,19 @@ class Pulse2(Pulse):
     count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
     count_rates = [count_rate1, count_rate2]
 
-    DATA_COLUMNS = ["t", "i1", "q1", "i2", "q2", 'i1_psd', 'q1_psd', 'f1_psd', 'i2_psd', 'q2_psd', 'f2_psd']
+    DATA_COLUMNS = ["i1", "q1", "i2", "q2", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd', 'f1_psd',
+                    'i2_psd', 'q2_psd', 'f2_psd']
 
     def startup(self):
         if self.should_stop():
             return
+        self.status_bar.value = "Loading sweep data"
+        result = Sweep2.load(self.sweep_file)
+        self.emit("results", {'i1_loop': result.data['i1'],
+                              'q1_loop': result.data['q1'],
+                              'i2_loop': result.data['i2'],
+                              'q2_loop': result.data['q2']})
+        
         self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
@@ -655,14 +679,14 @@ class Pulse2(Pulse):
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency1, self.frequency2])
         self.pulses = np.zeros((2, self.n_pulses, self.n_trace), dtype=[('I', np.float16), ('Q', np.float16)])
+        self.offset = np.zeros(2, dtype=[('I', np.float32), ('Q', np.float32)])
         self.update_metadata()
         
     def get_pulse_data(self, pulses, triggers):
-        data = {"t": np.linspace(0, self.n_trace / self.sample_rate, self.n_trace),  # in us
-                "i1": pulses['I'][0, np.argmax(triggers[0, :]), :],
-                "q1": pulses['Q'][0, np.argmax(triggers[0, :]), :],
-                "i2": pulses['I'][1, np.argmax(triggers[1, :]), :],
-                "q2": pulses['Q'][1, np.argmax(triggers[1, :]), :]}
+        data = {"i1": pulses['I'][0, np.argmax(triggers[0, :]), :] - self.offset['I'][0],
+                "q1": pulses['Q'][0, np.argmax(triggers[0, :]), :] - self.offset['Q'][0],
+                "i2": pulses['I'][1, np.argmax(triggers[1, :]), :] - self.offset['I'][1],
+                "q2": pulses['Q'][1, np.argmax(triggers[1, :]), :] - self.offset['Q'][1]}
         return data
         
     def noise_kwargs(self):

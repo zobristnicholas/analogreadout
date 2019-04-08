@@ -23,10 +23,13 @@ def open_pulse_gui(self, experiment):
     for key, value in sweep_parameters.items():
         if key in pulse_parameters.keys():
             pulse_parameters[key] = sweep_parameters[key]
-    # set the frequency parameters to the fits instead of the sweep center
+    # set the sweep file
     directory = experiment.procedure.directory
     file_name = experiment.data_filename
-    npz_file = np.load(os.path.join(directory, file_name))
+    file_path = os.path.join(directory, file_name)
+    pulse_parameters['sweep_file'].value = file_path
+    # set the frequency parameters to the fits instead of the sweep center
+    npz_file = np.load(file_path)
     noise_bias = npz_file['noise_bias']
     if noise_bias[0]:  # fit might not have been done
         pulse_parameters['frequency1'].value = noise_bias[0]
