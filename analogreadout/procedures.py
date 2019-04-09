@@ -602,7 +602,7 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
         n_pulses = 0
-        n_plot = 0
+        n_plot = 10
         while n_pulses < self.n_pulses:
             n_plot += 1
             
