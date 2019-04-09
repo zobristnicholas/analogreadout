@@ -54,8 +54,7 @@ def sweep_window():
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
     indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
-    if pulse_gui.temperature_updator is None:
-        pulse_gui.temperature_updator = pulse_gui.TemperatureUpdator()
+    pulse_gui.temperature_updator = pulse_gui.TemperatureUpdator()
     # patch the function to open the pulse gui
     SweepGUI.open_pulse_gui = open_pulse_gui    
     # make the window

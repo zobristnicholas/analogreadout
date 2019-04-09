@@ -73,9 +73,7 @@ def pulse_window():
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
     global temperature_updator
-    if temperature_updator is None:
-        temperature_updator = TemperatureUpdator()
-
+    temperature_updator = TemperatureUpdator()
     w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list, plot_names=names_list,
                  persistent_indicators=indicators)
