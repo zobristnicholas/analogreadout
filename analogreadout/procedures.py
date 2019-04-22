@@ -519,7 +519,7 @@ class Noise2(Noise):
         # create output data structures so that data is still saved after abort
         n_noise = int(1 + self.off_res * self.n_offset)
         n_points = int(self.time * self.sample_rate * 1e6)
-        offset = np.linspace(0, self.offset, self.off_res * self.n_offset + 1)
+        offset = np.linspace(0, self.offset, self.off_res * self.n_offset + 1) * 1e-3  # offset in MHz
         self.freqs = np.array([self.frequency1 + offset, self.frequency2 + offset])
         self.noise = np.zeros((2, n_noise, self.n_integrations, n_points), dtype=[('I', np.float16), ('Q', np.float16)])
                               
