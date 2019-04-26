@@ -282,7 +282,7 @@ class Sweep2(Sweep):
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
         self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
-        self.calibration = np.zeros((2, 3, self.n_samples), dtype=np.complex64)
+        self.calibration = np.zeros((2, 3, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         self.noise_bias = np.zeros(6)
         # save parameter metadata
         self.update_metadata()
