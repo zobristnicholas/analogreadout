@@ -49,7 +49,7 @@ class Sweep(SweepBaseProcedure):
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
             self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf,
-                                sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
+                                sample_rate=self.sample_rate * 1e6, n_samples=25 * self.n_samples)
         # loop through the frequencies and take data
         self.status_bar.value = "Calibrating IQ mixer offset"
         for index, _ in enumerate(self.f_offset[0, :]):
@@ -57,7 +57,7 @@ class Sweep(SweepBaseProcedure):
             if index == 0:
                 self.daq.adc.take_iq_point()  # first data point is sometimes garbage
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
-            self.emit('progress', index / (self.f_offset.shape[1] + self.freqs.shape[1])* 100)
+            self.emit('progress', index / (self.f_offset.shape[1] + self.freqs.shape[1]) * 100)
             log.debug("taking zero index: %d", index)
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -113,6 +113,7 @@ class Sweep(SweepBaseProcedure):
      
     def fit_data(self):
         z = self.z - self.z_offset_interp
+        z[np.isnan(z)] = 0  # nans mess with the filter
         filter_win_length = int(np.round(z.shape[1] / 100.0))
         if filter_win_length % 2 == 0:
             filter_win_length += 1
@@ -227,8 +228,8 @@ class Sweep1(Sweep):
             self.freqs = self.freqs[:, ::-1]                                       
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz        
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
-        # at least 1 MHz spacing
-        self.f_offset = np.atleast_2d(np.linspace(self.freqs.min(), self.freqs.max(), max(3, int(self.span + 1))))
+        # at least 0.1 MHz spacing
+        self.f_offset = np.atleast_2d(np.linspace(self.freqs.min(), self.freqs.max(), int(max(3, 10 * self.span + 1))))
         self.z_offset = np.zeros(self.f_offset.shape, dtype=np.complex64)
         # save parameter metadata
         self.update_metadata()
@@ -302,11 +303,12 @@ class Sweep2(Sweep):
             self.freqs = self.freqs[:, ::-1]
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
-        # at least 1 MHz spacing
+        # at least 0.1 MHz spacing
+        span = max(self.span1, self.span2)
         self.f_offset = np.vstack((np.linspace(self.freqs[0, :].min(), self.freqs[0, :].max(),
-                                               max(3, int(self.span1 + 1))),
+                                               int(max(3, 10 * span + 1))),
                                    np.linspace(self.freqs[1, :].min(), self.freqs[1, :].max(),
-                                               max(3, int(self.span2 + 1)))))
+                                               int(max(3, 10 * span + 1)))))
         self.z_offset = np.zeros(self.f_offset.shape, dtype=np.complex64)
         self.calibration = np.zeros((2, 3, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         self.noise_bias = np.zeros(6)
@@ -549,7 +551,7 @@ class Noise2(Noise):
         offset = np.linspace(0, self.offset, self.off_res * self.n_offset + 1) * 1e-3  # offset in MHz
         self.freqs = np.array([self.frequency1 + offset, self.frequency2 + offset])
         self.noise = np.zeros((2, n_noise, self.n_integrations, n_points), dtype=[('I', np.float16), ('Q', np.float16)])
-                              
+
         n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
         fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
