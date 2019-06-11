@@ -76,8 +76,13 @@ class AnritsuABC:
             if len(frequency) != 1:
                 raise ValueError("can only set one frequency at a time")
             frequency = frequency[0]
-        self.write("F1 {} GH;".format(frequency))
-        sleep(self.FREQUENCY_SWITCH)
+        if np.isnan(frequency):
+            self.turn_off_output()
+            log.debug("{} {}, s/n: {}, version: {} recieved a NaN frequency and turned off it's output"
+                      .format(*self.identity))
+        else:
+            self.write("F1 {} GH;".format(frequency))
+            sleep(self.FREQUENCY_SWITCH)
 
     def set_power(self, power):
         if isinstance(power, (list, tuple, np.ndarray)):
