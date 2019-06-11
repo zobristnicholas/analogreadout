@@ -4,6 +4,7 @@ import tempfile
 import warnings
 import numpy as np
 import scipy.signal as sig
+from scipy.interpolate import interp1d
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
                          Indicator, FloatIndicator, FileParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
@@ -19,9 +20,11 @@ class Sweep(SweepBaseProcedure):
     # outputs
     freqs = None
     z = None
+    f_offset = None
     z_offset = None
     calibration = None
     noise_bias = None
+    z_offset_interp = None
 
     sample_rate = FloatParameter("Sample Rate", units="MHz", default=0.8)
     n_samples = IntegerParameter("Samples to Average", default=20000)
@@ -49,16 +52,17 @@ class Sweep(SweepBaseProcedure):
                                 sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # loop through the frequencies and take data
         self.status_bar.value = "Calibrating IQ mixer offset"
-        for index, _ in enumerate(self.freqs[0, :]):
-            self.daq.dac.set_frequency(self.freqs[:, index])
+        for index, _ in enumerate(self.f_offset[0, :]):
+            self.daq.dac.set_frequency(self.f_offset[:, index])
             if index == 0:
                 self.daq.adc.take_iq_point()  # first data point is sometimes garbage
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
-            self.emit('progress', index / self.n_points * 100 / 2)
+            self.emit('progress', index / (self.f_offset.shape[1] + self.freqs.shape[1])* 100)
             log.debug("taking zero index: %d", index)
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
+        self.compute_offset()
         # initialize the system in the right mode
         self.status_bar.value = "Sweeping"
         adc_atten = max(0, self.total_atten - self.attenuation)
@@ -70,7 +74,8 @@ class Sweep(SweepBaseProcedure):
             self.z[:, index] = self.daq.adc.take_iq_point()
             data = self.get_sweep_data(index)
             self.emit('results', data)
-            self.emit('progress', 50 + index / self.n_points * 100 / 2)
+            self.emit('progress', (self.f_offset.shape[1] + index) /
+                                  (self.f_offset.shape[1] + self.freqs.shape[1]) * 100)
             log.debug("taking data index: %d", index)
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -96,8 +101,18 @@ class Sweep(SweepBaseProcedure):
         self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
         
+    @staticmethod
+    def interpolate_offset(freqs, f_offset, z_offset):
+        z_offset_interp = np.zeros(freqs.shape, dtype=np.complex64)
+        for ind in range(f_offset.shape[0]):
+            z_offset_interp[ind, :] = interp1d(f_offset[ind, :], z_offset[ind, :])(freqs[ind, :])
+        return z_offset_interp
+        
+    def compute_offset(self):
+        self.z_offset_interp = self.interpolate_offset(self.freqs, self.f_offset, self.z_offset)
+     
     def fit_data(self):
-        z = self.z - self.z_offset
+        z = self.z - self.z_offset_interp
         filter_win_length = int(np.round(z.shape[1] / 100.0))
         if filter_win_length % 2 == 0:
             filter_win_length += 1
@@ -144,16 +159,18 @@ class Sweep(SweepBaseProcedure):
         self.status_bar.value = "Saving sweep data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
-        np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset, calibration=self.calibration,
-                 noise_bias=self.noise_bias, metadata=self.metadata)
+        np.savez(file_path, freqs=self.freqs, z=self.z, z_offset=self.z_offset, f_offset=self.f_offset,
+                 calibration=self.calibration, noise_bias=self.noise_bias, metadata=self.metadata)
                  
     def clean_up(self):
         self.status_bar.value = ""
         self.freqs = None
         self.z = None
+        self.f_offset = None
         self.z_offset = None
         self.calibration = None
         self.noise_bias = None
+        self.z_offset_interp = None
         self.metadata = {"parameters": {}}
            
     @classmethod
@@ -210,14 +227,16 @@ class Sweep1(Sweep):
             self.freqs = self.freqs[:, ::-1]                                       
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz        
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
-        self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
+        # at least 1 MHz spacing
+        self.f_offset = np.atleast_2d(np.linspace(self.freqs.min(), self.freqs.max(), max(3, int(self.span + 1))))
+        self.z_offset = np.zeros(self.f_offset.shape, dtype=np.complex64)
         # save parameter metadata
         self.update_metadata()
     
     def get_sweep_data(self, index):
         data = {"f1": self.freqs[0, index],
-                "i": self.z[0, index].real - self.z_offset[0, index].real,
-                "q": self.z[0, index].imag - self.z_offset[0, index].imag}
+                "i": self.z[0, index].real - self.z_offset_interp[0, index].real,
+                "q": self.z[0, index].imag - self.z_offset_interp[0, index].imag}
         return data
 
     @classmethod
@@ -227,10 +246,12 @@ class Sweep1(Sweep):
         dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
+        
+        z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
         records["f"] = npz_file["freqs"][0, :] 
-        records["i"] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
-        records["q"] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
+        records["i"] = npz_file["z"][0, :].real - z_offset_interp[0, :].real
+        records["q"] = npz_file["z"][0, :].imag - z_offset_interp[0, :].imag
         return records
         
     def compute_noise_bias(self):
@@ -281,7 +302,12 @@ class Sweep2(Sweep):
             self.freqs = self.freqs[:, ::-1]
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
-        self.z_offset = np.zeros(self.freqs.shape, dtype=np.complex64)
+        # at least 1 MHz spacing
+        self.f_offset = np.vstack((np.linspace(self.freqs[0, :].min(), self.freqs[0, :].max(),
+                                               max(3, int(self.span1 + 1))),
+                                   np.linspace(self.freqs[1, :].min(), self.freqs[1, :].max(),
+                                               max(3, int(self.span2 + 1)))))
+        self.z_offset = np.zeros(self.f_offset.shape, dtype=np.complex64)
         self.calibration = np.zeros((2, 3, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         self.noise_bias = np.zeros(6)
         # save parameter metadata
@@ -291,17 +317,17 @@ class Sweep2(Sweep):
         db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset[0, index])) - db0
-            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset[1, index])) - db0
+            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - db0
+            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset_interp[1, index])) - db0
         t1 = np.nan if np.isinf(t1) else t1
         t2 = np.nan if np.isinf(t2) else t2    
         data = {"f1": self.freqs[0, index],
-                "i1": self.z[0, index].real - self.z_offset[0, index].real,
-                "q1": self.z[0, index].imag - self.z_offset[0, index].imag,
+                "i1": self.z[0, index].real - self.z_offset_interp[0, index].real,
+                "q1": self.z[0, index].imag - self.z_offset_interp[0, index].imag,
                 "t1": t1,
                 "f2": self.freqs[1, index],
-                "i2": self.z[1, index].real - self.z_offset[1, index].real,
-                "q2": self.z[1, index].imag - self.z_offset[1, index].imag,
+                "i2": self.z[1, index].real - self.z_offset_interp[1, index].real,
+                "q2": self.z[1, index].imag - self.z_offset_interp[1, index].imag,
                 "t2": t2}
         return data
     
@@ -327,24 +353,25 @@ class Sweep2(Sweep):
         dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
         records = np.empty((size,), dtype=dt)
         records.fill(np.nan)
+        z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
         db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - npz_file["z_offset"][0, :])) - db0
-            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - npz_file["z_offset"][1, :])) - db0
+            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - db0
+            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset_interp[1, :])) - db0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
         records["f1"][:size1] = npz_file["freqs"][0, :] 
-        records["i1"][:size1] = npz_file["z"][0, :].real - npz_file["z_offset"][0, :].real
-        records["q1"][:size1] = npz_file["z"][0, :].imag - npz_file["z_offset"][0, :].imag
+        records["i1"][:size1] = npz_file["z"][0, :].real - z_offset_interp[0, :].real
+        records["q1"][:size1] = npz_file["z"][0, :].imag - z_offset_interp[0, :].imag
         records["t1"][:size1] = t1
         records["i1_psd"][:size2] = psd[0, 0, :]['I']
         records["q1_psd"][:size2] = psd[0, 0, :]['Q']
         records["f1_psd"][:size2] = freqs[0, :]
         records["f2"][:size1] = npz_file["freqs"][1, :]
-        records["i2"][:size1] = npz_file["z"][1, :].real - npz_file["z_offset"][1, :].real
-        records["q2"][:size1] = npz_file["z"][1, :].imag - npz_file["z_offset"][1, :].imag
+        records["i2"][:size1] = npz_file["z"][1, :].real - z_offset_interp[1, :].real
+        records["q2"][:size1] = npz_file["z"][1, :].imag - z_offset_interp[1, :].imag
         records["t2"][:size1] = t2
         records["i2_psd"][:size2] = psd[1, 0, :]['I']
         records["q2_psd"][:size2] = psd[1, 0, :]['Q']
