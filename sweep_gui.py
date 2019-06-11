@@ -1,6 +1,6 @@
 import os
 import sys
-import numpy as  np
+import numpy as np
 from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Sweep2
@@ -54,7 +54,7 @@ def sweep_window():
     names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                   'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
     indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
-    pulse_gui.temperature_updator = pulse_gui.TemperatureUpdator()
+    pulse_gui.temperature_updater = pulse_gui.TemperatureUpdater()
     # patch the function to open the pulse gui
     SweepGUI.open_pulse_gui = open_pulse_gui    
     # make the window

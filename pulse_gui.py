@@ -12,7 +12,7 @@ from analogreadout.procedures import Pulse2
 from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
                          
 daq = None
-temperature_updator = None
+temperature_updater = None
 
 temperature_log = logging.getLogger('temperature')
 temperature_log.addHandler(logging.NullHandler())
@@ -24,7 +24,7 @@ temperatures = deque(maxlen=int(24 * 60))
 refresh_time = 60  # refresh temperature every minute
 
     
-class TemperatureUpdator(QtCore.QObject):
+class TemperatureUpdater(QtCore.QObject):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.timer = QtCore.QTimer()
@@ -72,8 +72,8 @@ def pulse_window():
     widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
-    global temperature_updator
-    temperature_updator = TemperatureUpdator()
+    global temperature_updater
+    temperature_updater = TemperatureUpdater()
     w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list, plot_names=names_list,
                  persistent_indicators=indicators)
