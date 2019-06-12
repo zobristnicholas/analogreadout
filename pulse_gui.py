@@ -52,7 +52,7 @@ def setup_logging():
         os.mkdir(directory)
     file_name = datetime.now().strftime("analogreadout_%y%m%d.log")
     file_path = os.path.join(directory, file_name)
-    handler = TimedRotatingFileHandler(file_path, when="midnight")
+    handler = TimedRotatingFileHandler(file_path, when="midnight")  # TODO: logfile not rotating properly
     handler.suffix = "%Y%m%d"
     handler.extMatch = re.compile(r"^\d{8}$")
     handler.setLevel("INFO")
