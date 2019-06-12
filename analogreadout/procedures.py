@@ -717,10 +717,17 @@ class Pulse2(Pulse):
         self.update_metadata()
         
     def get_pulse_data(self, pulses, triggers):
-        data = {"i1": pulses['I'][0, np.argmax(triggers[0, :]), :] - self.offset['I'][0],
-                "q1": pulses['Q'][0, np.argmax(triggers[0, :]), :] - self.offset['Q'][0],
-                "i2": pulses['I'][1, np.argmax(triggers[1, :]), :] - self.offset['I'][1],
-                "q2": pulses['Q'][1, np.argmax(triggers[1, :]), :] - self.offset['Q'][1]}
+        data = {}
+        try:
+            data["i1"] = pulses['I'][0, np.argmax(triggers[0, :]), :] - self.offset['I'][0]
+            data["q1"] = pulses['Q'][0, np.argmax(triggers[0, :]), :] - self.offset['Q'][0]
+        except ValueError:  # attempt to get argmax of an empty sequence
+            pass
+        try:
+            data["i2"] = pulses['I'][1, np.argmax(triggers[1, :]), :] - self.offset['I'][1]
+            data["q2"] = pulses['Q'][1, np.argmax(triggers[1, :]), :] - self.offset['Q'][1]
+        except ValueError:  # attempt to get argmax of an empty sequence
+            pass
         return data
         
     def noise_kwargs(self):
