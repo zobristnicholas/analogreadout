@@ -119,7 +119,7 @@ class DAQ:
         Take data for the given procedure_type. The procedure class is defined in the
         configuration file.
         Args:
-        procedure_type: sweep, noise or pulse (str)
+        procedure_type: sweep, noise, or pulse (str)
         file_name_kwargs: kwargs to pass to procedure.file_name() after instantiation
         should_stop: method to monkey patch into procedure.stop  (for chained procedures)
         emit: method to monkey patch into procedure.emit (for sending data to listener)
