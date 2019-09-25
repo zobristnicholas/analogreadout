@@ -1,3 +1,4 @@
+import os
 import logging
 import numpy as np
 from time import sleep
@@ -12,40 +13,19 @@ try:
     DAQmx_Val_GroupByChannel = PyDAQmx.DAQmxConstants.DAQmx_Val_GroupByChannel
 except (NotImplementedError, ImportError):
     pass  # allow for import if PyDAQmx is not configured
+try:
+    import matlab.engine
+except ImportError:
+    pass  # allow for import if matlab is not installed
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 
-class NI6120:
-    def __init__(self):
-        self.session = PyDAQmx.Task()
-        self.device = "Dev1"
-        # set timeout value
-        self.timeout = 20.0  # seconds
-        self.read = PyDAQmx.int32()  # for sampsPerChanRead
-        # set default input range, can be 42, 20, 10, 5, 2, 1, 0.5, 0.2 Volts
-        self.input_range_max = 0.2
-        self.input_range_min = -1.0 * self.input_range_max
-        # set default physical channel(s) to use
-        self.channels = ["/ai1", "/ai0", "/ai3", "/ai2"]  # I1, Q1, I2, Q2
-        self.channels = [self.device + channel for channel in self.channels]
-        # set default sample rate
-        self.sample_rate = 8.0e5  # samples per second
-        # set default number of samples per channel
-        self.samples_per_channel = 2e4
-        # set trace / collection ratio for pulse data
-        self.samples_per_partition = 2000
-        # collect more data than requested at a time to trigger on pulses
-        log.info("Connected to: National Instruments PCI-6120")
-
-    def initialize(self, channels=None, sample_rate=None, n_samples=None, n_trace=None):
-        self.reset()
-        self._create_channels(channels=channels)
-        self._set_channel_coupling()
-        self._disable_aa_filter()
-        self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples, n_trace=n_trace)
-
+class DigitizerABC:
+    def acquire_readings(self):
+        raise NotImplementedError
+    
     def take_noise_data(self, n_triggers):
         n_channels = int(len(self.channels) / 2)
         data = np.zeros((n_channels, n_triggers, int(self.samples_per_channel)),
@@ -53,7 +33,7 @@ class NI6120:
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
             sleep(rand_time)
-            sample = self._acquire_readings()
+            sample = self.acquire_readings()
             data[:, index, :]['I'] = sample[::2, :]
             data[:, index, :]['Q'] = sample[1::2, :]
         return data
@@ -63,7 +43,7 @@ class NI6120:
         n_channels = int(len(self.channels) / 2)
         n_samples = int(self.samples_per_partition)
         # collect data
-        sample = self._acquire_readings()
+        sample = self.acquire_readings()
         # turn the trigger level into a sigma
         sigma = np.zeros((sample.shape[0], 1))
         sigma[::2, 0] = trigger_level['I']
@@ -93,12 +73,41 @@ class NI6120:
         return data, triggers
 
     def take_iq_point(self):
-        channel_data = self._acquire_readings()
+        channel_data = self.acquire_readings()
         # combine I and Q signals
         data = np.zeros(int(len(channel_data) / 2), dtype=np.complex64)
         for index in range(int(len(channel_data) / 2)):
             data[index] = (np.mean(channel_data[2 * index]) + 1j * np.mean(channel_data[2 * index + 1]))
         return data
+    
+class NI6120:
+    def __init__(self):
+        self.session = PyDAQmx.Task()
+        self.device = "Dev1"
+        # set timeout value
+        self.timeout = 20.0  # seconds
+        self.read = PyDAQmx.int32()  # for sampsPerChanRead
+        # set default input range, can be 42, 20, 10, 5, 2, 1, 0.5, 0.2 Volts
+        self.input_range_max = 0.2
+        self.input_range_min = -1.0 * self.input_range_max
+        # set default physical channel(s) to use
+        self.channels = ["/ai1", "/ai0", "/ai3", "/ai2"]  # I1, Q1, I2, Q2
+        self.channels = [self.device + channel for channel in self.channels]
+        # set default sample rate
+        self.sample_rate = 8.0e5  # samples per second
+        # set default number of samples per channel
+        self.samples_per_channel = 2e4
+        # set trace / collection ratio for pulse data
+        self.samples_per_partition = 2000
+        # collect more data than requested at a time to trigger on pulses
+        log.info("Connected to: National Instruments PCI-6120")
+
+    def initialize(self, channels=None, sample_rate=None, n_samples=None, n_trace=None):
+        self.reset()
+        self._create_channels(channels=channels)
+        self._set_channel_coupling()
+        self._disable_aa_filter()
+        self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples, n_trace=n_trace)
 
     def reset(self):
         """
@@ -107,6 +116,30 @@ class NI6120:
         error = PyDAQmx.DAQmxResetDevice(self.device)
         self.session = PyDAQmx.Task()
         return error
+    
+    def acquire_readings(self):
+        """
+        Returns the digitized readings for two channels. An array is returned of shape
+        (self.channels.size, self.samples_per_channel) and dtype =  np.float64
+        """
+        n_channels = len(self.channels)
+        size = np.int(self.samples_per_channel * n_channels)
+        data = np.empty((size,), dtype=np.float64)
+
+        self.session.StartTask()
+        # byref() Returns a pointer lookalike to a C instance
+        samples_per_channel_read = PyDAQmx.byref(self.read)
+        # as opposed to DAQmx_Val_GroupByScanNumber
+        fill_mode = DAQmx_Val_GroupByChannel
+
+        self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
+                                   fill_mode, data, size, samples_per_channel_read, None)
+        self.session.StopTask()
+
+        # get data
+        data = np.array(np.hsplit(data, n_channels))
+
+        return data
 
     def _find_sigma_levels(self, search_length=50):
         # define some sizes
@@ -168,30 +201,6 @@ class NI6120:
             error = self.session.SetAICoupling(channel, DAQmx_Val_DC) or error
         return error
 
-    def _acquire_readings(self):
-        """
-        Returns the digitized readings for two channels. An array is returned of shape
-        (self.channels.size, self.samples_per_channel) and dtype =  np.float64
-        """
-        n_channels = len(self.channels)
-        size = np.int(self.samples_per_channel * n_channels)
-        data = np.empty((size,), dtype=np.float64)
-
-        self.session.StartTask()
-        # byref() Returns a pointer lookalike to a C instance
-        samples_per_channel_read = PyDAQmx.byref(self.read)
-        # as opposed to DAQmx_Val_GroupByScanNumber
-        fill_mode = DAQmx_Val_GroupByChannel
-
-        self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
-                                   fill_mode, data, size, samples_per_channel_read, None)
-        self.session.StopTask()
-
-        # get data
-        data = np.array(np.hsplit(data, n_channels))
-
-        return data
-
     def _enable_aa_filter(self):
         """
         Enable the built-in 5-pole Bessel 100kHz anti-alias filter of the NI6120.
@@ -212,3 +221,53 @@ class NI6120:
         """
         error = self.session.DAQmxSelfCal(self.device)
         return error
+
+class Avantech1840(DigitizerABC):
+    def __init__(self):
+        self.session = matlab.engine.start_matlab()
+        self.session.addpath(os.path.abspath(os.path.dirname(__file__)), nargout=0)
+        # set default input range, can be 10, 5, 2, 1, 0.5, 0.2, 0.1 Volts
+        self.input_range_max = 0.1
+        self.input_range_min = -1.0 * self.input_range_max
+        # set default physical channel(s) to use
+        self.channels = [0, 1]  # I1, Q1
+        # set default sample rate
+        self.sample_rate = 2.5e6  # samples per second
+        # set default number of samples per channel
+        self.samples_per_channel = 2.5e6
+        # set trace / collection ratio for pulse data
+        self.samples_per_partition = 2**13
+        # collect more data than requested at a time to trigger on pulses
+        log.info("Connected to: Avantech PCIe-1840")
+    
+    def initialize(self, channels=None, sample_rate=None, n_samples=None, n_trace=None):
+        self.reset()
+        if channels is not None:
+            self.channels = channels
+        if sample_rate is not None:
+            self.sample_rate = sample_rate
+        if n_samples is not None:
+            self.samples_per_channel = n_samples
+        if n_trace is not None:
+            self.samples_per_partition = n_trace
+        n_channels = len(self.channels)
+        sample_rate, error = self.session.avantech_1840_startup(
+                n_channels, self.sample_rate, self.samples_per_channel, nargout=2)
+
+        self.sample_rate = sample_rate  # could be set even if error
+        if error:
+            raise RuntimeError(error)
+    
+    def acquire_readings(self):
+        sample, error = self.session.avantech_1840_acquire(nargout=2)
+        if error:
+            raise RuntimeError(error)
+        # np.array(sample) is slow so we access the internal list for the conversion
+        sample = np.array(sample._data).reshape(sample.size, order='F').T
+        data = np.empty((len(self.channels), self.samples_per_channel))
+        for index, channel in enumerate(self.channels):
+            data[index, :] = sample[channel::len(self.channels), 0]
+        return data   
+    
+    def reset(self):
+        pass
