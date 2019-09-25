@@ -9,21 +9,20 @@ def config(configuration):
 
 
 def jpl_config():
-    scope_address = "GPIB0::7::INSTR"
-    sig_gen_address = "GPIB0::4::INSTR"
-    atten_address = "GPIB0::18::INSTR"
+    sig_gen_address = "GPIB1::4::INSTR"
+    atten_address = "GPIB1::18::INSTR"
 
     dac_config = {"dac": {"instrument": "AnritsuMG3692B",
-                          "arguments": (sig_gen_address),
+                          "arguments": (sig_gen_address, ),
                           "location": "signal_generators", "power": 14},
                   "attenuator": {"instrument": "Weinschel83102042F",
                                  "arguments": (atten_address, [1, 2]),
                                  "location": "attenuators"}}
-    adc_config = {"adc": {"instrument": "AgilentMSO6054A", "arguments": (scope_address,),
-                          "location": "oscilloscopes"}}
+    adc_config = {"adc": {"instrument": "Avantech1840", "arguments": (),
+                          "location": "digitizers"}}
     sensor_config = {}  # thermometer, primary_amplifier
     source_config = {}  # laser
-    procedure_config = {"sweep": "Sweep", "noise": "Noise", "pulse": "Pulse"}
+    procedure_config = {"sweep": "Sweep1", "noise": "Noise1", "pulse": "Pulse1"}
 
     configuration = {"dac": dac_config, "adc": adc_config, "sensors": sensor_config,
                      "procedures": procedure_config, "sources": source_config}
@@ -42,7 +41,7 @@ def ucsb_config():
                                  "arguments": (atten_address, [1, 2]),
                                  "location": "attenuators"}}
     adc_config = {"adc": {"instrument": "NI6120", "arguments": (),
-                          "location": "ni_digitizers"}}
+                          "location": "digitizers"}}
     thermometer_address = 'visa://blackfridge.physics.ucsb.edu/ASRL1::INSTR'
     channel = 6
     scanner = '3716'
