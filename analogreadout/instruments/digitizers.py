@@ -258,6 +258,20 @@ class Avantech1840(DigitizerABC):
         self.sample_rate = sample_rate  # could be set even if error
         if error:
             raise RuntimeError(error)
+            
+    def take_iq_point(self):
+        if self.samples_per_channel >= 10000:
+            return super().take_iq_point()
+        else:
+            n_channels = len(self.channels)
+            sample, error = self.session.avantech_1840_instant(
+                    n_channels, self.samples_per_channel, nargout=2)
+            if error:
+                raise RuntimeError(error)
+            data = np.zeros(n_channels, dtype=np.complex)
+            for index in range(n_channels):
+                data[index] = np.mean(sample[index::n_channels] + 1j * sample[index::n_channels])
+            return data
     
     def acquire_readings(self):
         sample, error = self.session.avantech_1840_acquire(nargout=2)
@@ -266,8 +280,6 @@ class Avantech1840(DigitizerABC):
         # np.array(sample) is slow so we access the internal list for the conversion
         sample = np.array(sample._data).reshape(sample.size, order='F').T
         data = np.empty((len(self.channels), self.samples_per_channel))
-        print(data)
-        print(sample)
         for index, channel in enumerate(self.channels):
             data[index, :] = sample[channel::len(self.channels), 0]
         return data   
