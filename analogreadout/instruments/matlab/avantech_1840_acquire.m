@@ -3,13 +3,13 @@
 % Matlab(2010 or 2010 above)
 %
 % Description:
-%    This function acuires a data trace from the Advantech PCIE 1840. The
+%    This function acquires a data trace from the Advantech PCIE 1840. The
 %    digitizer must first be setup by avantech_1840_startup.m
 %
 % Returns:
 %   data: double
 %       The measured data. Data from a particular channel can be returned
-%       using 'data(channelNumber:nChannels:nSamples)'.
+%       using 'data(channelNumber:nChannels:nSamples*nChannels)'.
 %   errorStr: string
 %       If no errors occured, an empty string is returned. If an error
 %       occured, the error message is returned. This function should never
@@ -37,7 +37,7 @@ try
     % disp('SynchronousOneBufferedAI is in progress.');
     % disp('Please wait, until acquisition complete.');
     errorCode = waveformAiCtrl.Start();
-    if BioFailed(errorCode)
+    if avantech_1840_error(errorCode)
         throw Exception();
     end
     conversion = waveformAiCtrl.Conversion;
@@ -51,14 +51,14 @@ try
     errorCode = waveformAiCtrl.GetData(count, data, -1);
     data = double(data);
     % disp('Acquisition has completed!');
-    if BioFailed(errorCode)
+    if avantech_1840_error(errorCode)
         throw Exception();
     end
 catch e    
     % Something is wrong.
     preface = "An Advantech PCIe-1840 error occurred." + ...
         " And the last error code is:";
-    if BioFailed(errorCode)    
+    if avantech_1840_error(errorCode)    
         errorStr = preface + " " + string(errorCode.ToString());
     else
         errorStr = preface + newline + string(e.message);
@@ -66,12 +66,6 @@ catch e
 end
 
 % Step 4: Close device, release any allocated resource.
-  waveformAiCtrl.Dispose();
+waveformAiCtrl.Dispose();
 end
 
-function result = BioFailed(errorCode)
-
-result =  errorCode < Automation.BDaq.ErrorCode.Success && ...
-    errorCode >= Automation.BDaq.ErrorCode.ErrorHandleNotValid;
-
-end

@@ -225,7 +225,8 @@ class NI6120:
 class Avantech1840(DigitizerABC):
     def __init__(self):
         self.session = matlab.engine.start_matlab()
-        self.session.addpath(os.path.abspath(os.path.dirname(__file__)), nargout=0)
+        matlab_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "matlab")
+        self.session.addpath(matlab_path, nargout=0)
         # set default input range, can be 10, 5, 2, 1, 0.5, 0.2, 0.1 Volts
         self.input_range_max = 0.1
         self.input_range_min = -1.0 * self.input_range_max
@@ -265,6 +266,8 @@ class Avantech1840(DigitizerABC):
         # np.array(sample) is slow so we access the internal list for the conversion
         sample = np.array(sample._data).reshape(sample.size, order='F').T
         data = np.empty((len(self.channels), self.samples_per_channel))
+        print(data)
+        print(sample)
         for index, channel in enumerate(self.channels):
             data[index, :] = sample[channel::len(self.channels), 0]
         return data   

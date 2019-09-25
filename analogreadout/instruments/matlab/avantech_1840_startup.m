@@ -3,32 +3,38 @@
 % Matlab(2010 or 2010 above)
 %
 % Description:
-%    This function sets up the Advantech PCIE 1840 for data taking.
+%    This function sets up the Advantech PCIE 1840 for data taking with
+%    avantech_1840_acquire.m.
 %
 % Args:
 %   nChannels: integer
 %       The number of channels to read out. The output data will be sliced
-%       as data(channelNumber:nChannels:nSamples). The channel number is
-%       not a settable property, so to readout the 3rd channel, for
-%       example, all the channels up to and including the 3rd must be read.
-%       (nChannels = 3).
+%       as data(channelNumber:nChannels:nSamples*nChannels). The channel
+%       number is not a settable property, so to readout the 3rd channel,
+%       for example, all the channels up to and including the 3rd must be
+%       read (nChannels = 3).
 %   sampleRate: double
 %       The sample rate in Hz of the digitizer. This code assumes that the
 %       external reference clock is connected. Note that the set frequency
 %       may differ slightly from the requested frequency.
 %   nSamples: integer
 %       The number of samples per channel to return when data is taken.
+%       Note that the set number of samples may differ slightly from the
+%       requested value.
 %
 % Returns:
-%   sampleRate: float
+%   sampleRate: double
 %       The sample rate that was actually set on the digitizer.
+%   nSamples: integer
+%       The number of samples per channel that was actually set on the
+%       digitizer.
 %   errorStr: string
 %       If no errors occured, an empty string is returned. If an error
 %       occured, the error message is returned. This function should never
 %       throw an error, and it is left up to the calling function to
 %       perform error control
 %
-function [sampleRate, errorStr] = avantech_1840_startup(...
+function [sampleRate, nSamples, errorStr] = avantech_1840_startup(...
     nChannels, sampleRate, nSamples)
 % Make Automation.BDaq assembly visible to MATLAB.
 BDaq = NET.addAssembly('Automation.BDaq4');
@@ -72,17 +78,22 @@ try
 
     record.SectionCount = sectionCount;
     record.SectionLength = sectionLength;
-
+    % the set number of samples might be slightly different
+    if nSamples ~= 0
+        nSamples = ceil(nSamples / 4) * 4;
+    else
+        nSamples = 1024;
+    end
     % Step 4: Prepare the buffered AI. 
     errorCode =  waveformAiCtrl.Prepare();
-    if BioFailed(errorCode)
+    if avantech_1840_error(errorCode)
         throw Exception();
     end
 catch e
     % Something is wrong.
     preface = "An Advantech PCIe-1840 error occurred." + ...
         " And the last error code is:";
-    if BioFailed(errorCode)    
+    if avantech_1840_error(errorCode)    
         errorStr = preface + " " + string(errorCode.ToString());
     else
         errorStr = preface + newline + string(e.message);
@@ -90,12 +101,5 @@ catch e
 end
 
 % Step 7: Close device, release any allocated resource.
-  waveformAiCtrl.Dispose();
-end
-
-function result = BioFailed(errorCode)
-
-result =  errorCode < Automation.BDaq.ErrorCode.Success && ...
-    errorCode >= Automation.BDaq.ErrorCode.ErrorHandleNotValid;
-
+waveformAiCtrl.Dispose();
 end
