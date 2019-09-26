@@ -88,8 +88,6 @@ class DAQ:
             if key == "laser":
                 self.laser = get_instrument(value)
         # if the instrument wasn't initialized set it to a dummy NotAnInstrument class
-        if self.adc is None or self.dac is None:
-            raise ValueError("configuration must specify an adc and dac")
         if self.dac_atten is None:
             self.dac_atten = NotAnAttenuator("DAC")
         if self.adc_atten is None:
