@@ -14,11 +14,11 @@ def jpl_config():
 
     dac_config = {"dac": {"instrument": "AnritsuMG3692B",
                           "arguments": (sig_gen_address, ),
-                          "location": "signal_generators", "power": 14},
+                          "location": "signal_generators", "power": 16},
                   "attenuator": {"instrument": "Weinschel83102042F",
                                  "arguments": (atten_address, [1, 2]),
                                  "location": "attenuators"}}
-    adc_config = {"adc": {"instrument": "Avantech1840", "arguments": (),
+    adc_config = {"adc": {"instrument": "Advantech1840", "arguments": (),
                           "location": "digitizers"}}
     sensor_config = {}  # thermometer, primary_amplifier
     source_config = {}  # laser

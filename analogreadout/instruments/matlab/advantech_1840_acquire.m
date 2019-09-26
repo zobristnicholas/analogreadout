@@ -1,10 +1,10 @@
-% avantech_1840_acquire.m
+% advantech_1840_acquire.m
 %
 % Matlab(2010 or 2010 above)
 %
 % Description:
 %    This function acquires a data trace from the Advantech PCIE 1840. The
-%    digitizer must first be setup by avantech_1840_startup.m
+%    digitizer must first be setup by advantech_1840_startup.m
 %
 % Returns:
 %   data: double
@@ -16,7 +16,7 @@
 %       throw an error, and it is left up to the calling function to
 %       perform error control
 %
-function [data, errorStr] = avantech_1840_acquire()
+function [data, errorStr] = advantech_1840_acquire()
 % Make Automation.BDaq assembly visible to MATLAB.
 BDaq = NET.addAssembly('Automation.BDaq4');
 % Device info
@@ -37,7 +37,7 @@ try
     % disp('SynchronousOneBufferedAI is in progress.');
     % disp('Please wait, until acquisition complete.');
     errorCode = waveformAiCtrl.Start();
-    if avantech_1840_error(errorCode)
+    if advantech_1840_error(errorCode)
         throw Exception();
     end
     conversion = waveformAiCtrl.Conversion;
@@ -51,14 +51,14 @@ try
     errorCode = waveformAiCtrl.GetData(count, data, -1);
     data = double(data);
     % disp('Acquisition has completed!');
-    if avantech_1840_error(errorCode)
+    if advantech_1840_error(errorCode)
         throw Exception();
     end
 catch e    
     % Something is wrong.
     preface = "An Advantech PCIe-1840 error occurred." + ...
         " And the last error code is:";
-    if avantech_1840_error(errorCode)    
+    if advantech_1840_error(errorCode)    
         errorStr = preface + " " + string(errorCode.ToString());
     else
         errorStr = preface + newline + string(e.message);

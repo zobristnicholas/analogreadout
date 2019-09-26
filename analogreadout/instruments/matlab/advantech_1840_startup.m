@@ -1,10 +1,10 @@
-% avantech_1840_startup.m
+% advantech_1840_startup.m
 %
 % Matlab(2010 or 2010 above)
 %
 % Description:
 %    This function sets up the Advantech PCIE 1840 for data taking with
-%    avantech_1840_acquire.m.
+%    advantech_1840_acquire.m.
 %
 % Args:
 %   nChannels: integer
@@ -34,7 +34,7 @@
 %       throw an error, and it is left up to the calling function to
 %       perform error control
 %
-function [sampleRate, nSamples, errorStr] = avantech_1840_startup(...
+function [sampleRate, nSamples, errorStr] = advantech_1840_startup(...
     nChannels, sampleRate, nSamples)
 % Make Automation.BDaq assembly visible to MATLAB.
 BDaq = NET.addAssembly('Automation.BDaq4');
@@ -62,7 +62,7 @@ try
 
     % Step 3: Set necessary parameters for Asynchronous One Buffered AI
     % operation.
-    valueRange = Automation.BDaq.ValueRange.mV_Neg100To100;
+    valueRange = Automation.BDaq.ValueRange.V_Neg2To2;  % V_Neg5To5; % V_Neg1To1;  % mV_Neg100To100;
     for ii = 1:nChannels
         % fix at lowest voltage range
         waveformAiCtrl.Channels(ii).ValueRange = valueRange;
@@ -86,14 +86,14 @@ try
     end
     % Step 4: Prepare the buffered AI. 
     errorCode =  waveformAiCtrl.Prepare();
-    if avantech_1840_error(errorCode)
+    if advantech_1840_error(errorCode)
         throw Exception();
     end
 catch e
     % Something is wrong.
     preface = "An Advantech PCIe-1840 error occurred." + ...
         " And the last error code is:";
-    if avantech_1840_error(errorCode)    
+    if advantech_1840_error(errorCode)    
         errorStr = preface + " " + string(errorCode.ToString());
     else
         errorStr = preface + newline + string(e.message);

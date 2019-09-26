@@ -222,7 +222,7 @@ class NI6120:
         error = self.session.DAQmxSelfCal(self.device)
         return error
 
-class Avantech1840(DigitizerABC):
+class Advantech1840(DigitizerABC):
     def __init__(self):
         self.session = matlab.engine.start_matlab()
         matlab_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "matlab")
@@ -239,7 +239,7 @@ class Avantech1840(DigitizerABC):
         # set trace / collection ratio for pulse data
         self.samples_per_partition = 2**13
         # collect more data than requested at a time to trigger on pulses
-        log.info("Connected to: Avantech PCIe-1840")
+        log.info("Connected to: Advantech PCIe-1840")
     
     def initialize(self, channels=None, sample_rate=None, n_samples=None, n_trace=None):
         self.reset()
@@ -252,37 +252,43 @@ class Avantech1840(DigitizerABC):
         if n_trace is not None:
             self.samples_per_partition = n_trace
         n_channels = len(self.channels)
-        sample_rate, error = self.session.avantech_1840_startup(
-                n_channels, self.sample_rate, self.samples_per_channel, nargout=2)
+        sample_rate, n_samples, error = self.session.advantech_1840_startup(
+                n_channels, self.sample_rate, self.samples_per_channel, nargout=3)
 
         self.sample_rate = sample_rate  # could be set even if error
+        self.samples_per_channel = n_samples
         if error:
             raise RuntimeError(error)
             
     def take_iq_point(self):
-        if self.samples_per_channel >= 10000:
+        if self.samples_per_channel > 10000:
             return super().take_iq_point()
         else:
             n_channels = len(self.channels)
-            sample, error = self.session.avantech_1840_instant(
+            sample, error = self.session.advantech_1840_instant(
                     n_channels, self.samples_per_channel, nargout=2)
             if error:
                 raise RuntimeError(error)
-            data = np.zeros(n_channels, dtype=np.complex)
-            for index in range(n_channels):
-                data[index] = np.mean(sample[index::n_channels] + 1j * sample[index::n_channels])
+            sample =self._matlab_to_numpy(sample)
+            data = np.zeros(n_channels // 2, dtype=np.complex64)
+            for index in range(n_channels // 2):
+                data[index] = np.mean(sample[2 * index::n_channels] + 1j * sample[2 * index + 1::n_channels])
             return data
     
     def acquire_readings(self):
-        sample, error = self.session.avantech_1840_acquire(nargout=2)
+        sample, error = self.session.advantech_1840_acquire(nargout=2)
         if error:
             raise RuntimeError(error)
-        # np.array(sample) is slow so we access the internal list for the conversion
-        sample = np.array(sample._data).reshape(sample.size, order='F').T
-        data = np.empty((len(self.channels), self.samples_per_channel))
+        sample =self._matlab_to_numpy(sample)
+        data = np.empty((len(self.channels), int(self.samples_per_channel)))
         for index, channel in enumerate(self.channels):
             data[index, :] = sample[channel::len(self.channels), 0]
         return data   
     
     def reset(self):
         pass
+    
+    @staticmethod
+    def _matlab_to_numpy(array):
+        # np.array(sample) is slow so we access the internal list for the conversion
+        return np.array(array._data).reshape(array.size, order='F').T

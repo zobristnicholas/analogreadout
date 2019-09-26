@@ -1,11 +1,11 @@
-% avantech_1840_instant.m
+% advantech_1840_instant.m
 %
 % Matlab(2010 or 2010 above)
 %
 % Description:
 %    This function acquires a data trace from the Advantech PCIE 1840 using
 %    the instant routine. This is generally faster than
-%    avantech_1840_acquire.m for nSamples < 10000, but the data is not
+%    advantech_1840_acquire.m for nSamples < 10000, but the data is not
 %    taken at a constant rate. 
 %
 % Args:
@@ -28,16 +28,16 @@
 %       throw an error, and it is left up to the calling function to
 %       perform error control
 %
-function [data, errorStr] = avantech_1840_instant(nChannels, nSamples)
+function [data, errorStr] = advantech_1840_instant(nChannels, nSamples)
 % Make Automation.BDaq assembly visible to MATLAB.
 BDaq = NET.addAssembly('Automation.BDaq4');
 % Device info
 deviceDescription = 'PCIE-1840,BID#0'; 
 channelCount = int32(nChannels);
+nSamples = int32(nSamples);
 errorCode = Automation.BDaq.ErrorCode.Success;
 errorStr = "";
-data = zeros(1, nChannels * nSamples);
-
+data = zeros(1, channelCount * nSamples);
 % Step 1: Create a 'InstantAiCtrl' for buffered AI function.
 instantAiCtrl = Automation.BDaq.InstantAiCtrl();
 try
@@ -53,7 +53,7 @@ try
         errorCode = instantAiCtrl.Read(int32(0), channelCount, currentData);
         index = (channelCount * ii - channelCount + 1: channelCount * ii);
         data(1, index) = double(currentData);
-        if avantech_1840_error(errorCode)
+        if advantech_1840_error(errorCode)
             throw Exception();
         end
     end
@@ -61,7 +61,7 @@ catch e
     % Something is wrong.
     preface = "An Advantech PCIe-1840 error occurred." + ...
         " And the last error code is:";
-    if avantech_1840_error(errorCode)    
+    if advantech_1840_error(errorCode)    
         errorStr = preface + " " + string(errorCode.ToString());
     else
         errorStr = preface + newline + string(e.message);
