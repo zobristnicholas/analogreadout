@@ -180,7 +180,7 @@ class Sweep(SweepBaseProcedure):
         Load the procedure output into a pymeasure Results class instance for the GUI.
         """
         # load in the data
-        npz_file = np.load(file_path)
+        npz_file = np.load(file_path, allow_pickle=True)
         # create empty numpy structured array
         procedure = cls.make_procedure_from_file(npz_file)
         # make array with data
@@ -211,7 +211,7 @@ class Sweep1(Sweep):
     frequency = FloatParameter("Center Frequency", units="GHz", default=4.0)
     span = FloatParameter("Span", units="MHz", default=2)
     # gui data columns
-    DATA_COLUMNS = ['f', 'i', 'q', 'i_bias', 'q_bias', 'f_bias', 't_bias', 'i_psd', 'q_psd', 'f_psd']
+    DATA_COLUMNS = ['f', 'i', 'q', 't', 'i_bias', 'q_bias', 'f_bias', 't_bias', 'i_psd', 'q_psd', 'f_psd']
     
     def startup(self):
         if self.should_stop():
@@ -235,9 +235,15 @@ class Sweep1(Sweep):
         self.update_metadata()
     
     def get_sweep_data(self, index):
+        db0 = 10 * np.log10(1e-3 / 50)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            t = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - db0
+        t = np.nan if np.isinf(t) else t
         data = {"f": self.freqs[0, index],
                 "i": self.z[0, index].real - self.z_offset_interp[0, index].real,
-                "q": self.z[0, index].imag - self.z_offset_interp[0, index].imag}
+                "q": self.z[0, index].imag - self.z_offset_interp[0, index].imag,
+                "t": t}
         return data
    
     @classmethod
@@ -248,7 +254,7 @@ class Sweep1(Sweep):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_file = np.load(noise_file)
+            noise_file = np.load(noise_file, allow_pickle=True)
             psd = noise_file["psd"]
             freqs = noise_file["f_psd"]
             size2 = freqs[0, :].size
@@ -374,7 +380,7 @@ class Sweep2(Sweep):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_file = np.load(noise_file)
+            noise_file = np.load(noise_file, allow_pickle=True)
             psd = noise_file["psd"]
             freqs = noise_file["f_psd"]
             size2 = freqs[0, :].size
