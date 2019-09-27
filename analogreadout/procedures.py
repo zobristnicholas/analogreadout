@@ -497,10 +497,10 @@ class Noise(MKIDProcedure):
 
     directory = DirectoryParameter("Data Directory")
     attenuation = FloatParameter("DAC Attenuation", units="dB")
-    sample_rate = FloatParameter("Sampling Rate", units="Hz", default=8e5)
+    sample_rate = FloatParameter("Sampling Rate", units="MHz", default=8e5)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
-    time = FloatParameter("Integration Time", default=1)
-    n_integrations = IntegerParameter("Number of Integrations", units="s", default=1)
+    time = FloatParameter("Integration Time", default=1, units="s",)
+    n_integrations = IntegerParameter("Number of Integrations", default=1)
     off_res = BooleanParameter("Take Off Resonance Data", default=True)
     offset = FloatParameter("Frequency Offset", units="MHz", default=-2)
     n_offset = IntegerParameter("# of Points", default=1)
