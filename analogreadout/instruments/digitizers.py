@@ -60,7 +60,7 @@ class DigitizerABC:
                     logic[:, index] = False
         # create array of trigger channels
         n_triggers = int(np.sum(logic))
-        triggers = np.zeros((n_channels, n_triggers))
+        triggers = np.zeros((n_channels, n_triggers), dtype=bool)
         # put triggers in dataset
         data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         trigger_indices = np.where(logic)
@@ -79,7 +79,8 @@ class DigitizerABC:
         for index in range(int(len(channel_data) / 2)):
             data[index] = (np.mean(channel_data[2 * index]) + 1j * np.mean(channel_data[2 * index + 1]))
         return data
-    
+
+
 class NI6120:
     def __init__(self):
         self.session = PyDAQmx.Task()
@@ -222,6 +223,7 @@ class NI6120:
         error = self.session.DAQmxSelfCal(self.device)
         return error
 
+
 class Advantech1840(DigitizerABC):
     def __init__(self):
         self.session = matlab.engine.start_matlab()
@@ -269,7 +271,7 @@ class Advantech1840(DigitizerABC):
                     n_channels, self.samples_per_channel, nargout=2)
             if error:
                 raise RuntimeError(error)
-            sample =self._matlab_to_numpy(sample)
+            sample = self._matlab_to_numpy(sample)
             data = np.zeros(n_channels // 2, dtype=np.complex64)
             for index in range(n_channels // 2):
                 data[index] = np.mean(sample[2 * index::n_channels] + 1j * sample[2 * index + 1::n_channels])
@@ -279,7 +281,7 @@ class Advantech1840(DigitizerABC):
         sample, error = self.session.advantech_1840_acquire(nargout=2)
         if error:
             raise RuntimeError(error)
-        sample =self._matlab_to_numpy(sample)
+        sample = self._matlab_to_numpy(sample)
         data = np.empty((len(self.channels), int(self.samples_per_channel)))
         for index, channel in enumerate(self.channels):
             data[index, :] = sample[channel::len(self.channels), 0]
