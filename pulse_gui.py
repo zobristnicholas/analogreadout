@@ -4,7 +4,8 @@ import sys
 import numpy as np
 from datetime import datetime
 from collections import deque
-from pymeasure.display.Qt import QtGui, QtCore
+from threading import Thread, Event
+from pymeasure.display.Qt import QtGui
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
@@ -14,35 +15,34 @@ from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWi
 daq = None
 temperature_updater = None
 
-temperature_log = logging.getLogger('temperature')
-temperature_log.addHandler(logging.NullHandler())
-resistance_log = logging.getLogger('resistance')
-resistance_log.addHandler(logging.NullHandler())
-
 time_stamps = deque(maxlen=int(24 * 60))  # one day of data if refresh time is every minute
 temperatures = deque(maxlen=int(24 * 60))
 refresh_time = 60  # refresh temperature every minute
 
-    
-class TemperatureUpdater(QtCore.QObject):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.update)
-        self.timer.start(refresh_time * 1000)  # update every refresh time minutes
-        
-    def update(self):
+
+class Updater(Thread):
+    def __init__(self):
+        Thread.__init__(self, daemon=True)  # stop process on program exit
+        self.finished = Event()
+        self.start()
+
+    def cancel(self):
+        self.finished.set()
+
+    def run(self):
+        while not self.finished.wait(refresh_time):
+            self.update()
+
+    @staticmethod
+    def update():
         try:
             temp = daq.thermometer.temperature * 1000
             res = daq.thermometer.resistance
-            if not np.isnan(temp):
+            if not np.isnan(temp) and not np.isnan(res):
                 time_stamps.append(datetime.now().timestamp())
                 temperatures.append(temp)
-                temperature_log.info(str(temp) + ' mK')
-            if not np.isnan(res):
-                resistance_log.info(str(res) + " Ohm")
         except AttributeError:
-            pass     
+            pass
 
 
 def setup_logging():
@@ -73,7 +73,7 @@ def pulse_window():
     names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
     global temperature_updater
-    temperature_updater = TemperatureUpdater()
+    temperature_updater = Updater()
     w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list, plot_names=names_list,
                  persistent_indicators=indicators)

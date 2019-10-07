@@ -55,7 +55,7 @@ def sweep_window(config="UCSB"):
         names_list = ('Channel 1: IQ', 'Channel 1: |S21|', 'Channel 1: Noise',
                       'Channel 2: IQ', 'Channel 2: |S21|', 'Channel 2: Noise')
         indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
-        pulse_gui.temperature_updater = pulse_gui.TemperatureUpdater()
+        pulse_gui.temperature_updater = pulse_gui.Updater()
         # patch the function to open the pulse gui
         SweepGUI.open_pulse_gui = open_pulse_gui    
         # make the window
@@ -77,7 +77,7 @@ def sweep_window(config="UCSB"):
         widgets_list = (SweepPlotWidget, TransmissionPlotWidget, NoisePlotWidget)
         names_list = ('IQ', '|S21|', 'Noise')
         indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
-        pulse_gui.temperature_updater = pulse_gui.TemperatureUpdater()
+        pulse_gui.temperature_updater = pulse_gui.Updater()
         # patch the function to open the pulse gui
         SweepGUI.open_pulse_gui = open_pulse_gui    
         # make the window

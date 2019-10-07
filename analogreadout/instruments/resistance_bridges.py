@@ -10,6 +10,10 @@ from slave.transport import Visa, SimulatedTransport
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
+temperature_log = logging.getLogger('temperature')
+temperature_log.addHandler(logging.NullHandler())
+resistance_log = logging.getLogger('resistance')
+resistance_log.addHandler(logging.NullHandler())
 
 
 # patch Integer type in slaves module
@@ -51,10 +55,10 @@ class LakeShore370AC(LS370):
             
     @property
     def temperature(self):
-        # TODO: it would be nice to write to the 'temperature' log here
         with LOCK:
             temp = self.input[self.channel - 1].kelvin
             sleep(self.WAIT_MEASURE)
+            temperature_log.info(str(temp * 1000) + ' mK')
             return temp
     
     @property
@@ -62,6 +66,7 @@ class LakeShore370AC(LS370):
         with LOCK:
             res = self.input[self.channel - 1].resistance
             sleep(self.WAIT_MEASURE)
+            resistance_log.info(str(res) + ' Ohm')
             return res
         
     def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
