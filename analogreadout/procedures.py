@@ -188,10 +188,7 @@ class Sweep(SweepBaseProcedure):
         # make a temporary file for the gui data
         results = cls.make_results(records, procedure)
         return results
-            
-    def startup(self):
-        pass
-    
+
     def calibrate(self):
         pass
     
