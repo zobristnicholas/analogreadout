@@ -14,11 +14,11 @@ log.addHandler(logging.NullHandler())
 
 # patch Integer type in slaves module
 Integer.__convert__ = lambda self, value: int(float(value))
+LOCK = threading.Lock()
 
 
 class LakeShore370AC(LS370):
     WAIT_MEASURE = 0.15
-    LOCK = threading.Lock()
 
     def __init__(self, address, channel, scanner=None):
         self.channel = channel
@@ -52,14 +52,14 @@ class LakeShore370AC(LS370):
     @property
     def temperature(self):
         # TODO: it would be nice to write to the 'temperature' log here
-        with self.LOCK:
+        with LOCK:
             temp = self.input[self.channel - 1].kelvin
             sleep(self.WAIT_MEASURE)
             return temp
     
     @property
     def resistance(self):
-        with self.LOCK:
+        with LOCK:
             res = self.input[self.channel - 1].resistance
             sleep(self.WAIT_MEASURE)
             return res
