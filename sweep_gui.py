@@ -95,11 +95,14 @@ def sweep_window(config="UCSB"):
 
 
 if __name__ == '__main__':
-    # TODO: implement JPL/UCSB configuration switching
     pulse_gui.setup_logging()
+    if len(sys.argv) > 1:
+        config = sys.argv.pop(1)
+    else:
+        config = "UCSB"
     app = QtGui.QApplication(sys.argv)
     app.setWindowIcon(get_image_icon("loop.png"))
-    window = sweep_window("JPL")
+    window = sweep_window(config)
     window.activateWindow()
     window.show()
     ex = app.exec_()
