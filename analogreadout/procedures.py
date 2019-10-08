@@ -16,6 +16,27 @@ log.addHandler(logging.NullHandler())
 STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
+def make_procedure_from_file(cls, npz_file):
+    # load in the data
+    metadata = npz_file['metadata'].item()
+    parameter_dict = metadata['parameters']
+    # make a procedure object with the right parameters
+    procedure = cls()
+    for name, value in parameter_dict.items():
+        setattr(procedure, name, value)
+    procedure.refresh_parameters()  # Enforce update of meta data
+    return procedure
+
+
+def make_results(results_dict, procedure):
+    # make a results object
+    file_path = os.path.abspath(tempfile.mktemp(suffix='.pickle'))
+    results = Results(procedure, file_path)
+    # update the data in the results
+    results.data = results_dict
+    return results
+
+
 class Sweep(SweepBaseProcedure):
     # outputs
     freqs = None
@@ -129,33 +150,7 @@ class Sweep(SweepBaseProcedure):
         
     def compute_noise_bias(self):
         pass
-        
-    @classmethod
-    def make_procedure_from_file(cls, npz_file):
-        # load in the data
-        metadata = npz_file['metadata'].item()
-        parameter_dict = metadata['parameters']
-        # make a procedure object with the right parameters
-        procedure = cls()
-        for name, value in parameter_dict.items():
-            setattr(procedure, name, value)
-        procedure.refresh_parameters()  # Enforce update of meta data
-        return procedure
 
-    @staticmethod
-    def make_results(records, procedure):
-        # make a temporary file for the gui data
-        file_path = os.path.abspath(tempfile.mktemp(suffix=".txt"))
-        # make the mkidplotter Results class
-        results = Results(procedure, file_path)
-        log.info("Loading dataset into the temporary file %s", file_path)
-        # write the record array to the file
-        with open(file_path, mode='a') as temporary_file:
-            for index in range(records.shape[0]):
-                temporary_file.write(results.format(records[index]))
-                temporary_file.write(os.linesep)
-        return results
-                
     def save(self):
         self.status_bar.value = "Saving sweep data to file"
         file_path = os.path.join(self.directory, self.file_name())
@@ -182,11 +177,11 @@ class Sweep(SweepBaseProcedure):
         # load in the data
         npz_file = np.load(file_path, allow_pickle=True)
         # create empty numpy structured array
-        procedure = cls.make_procedure_from_file(npz_file)
+        procedure = make_procedure_from_file(cls, npz_file)
         # make array with data
-        records = cls.make_record_array(npz_file)
+        results_dict = cls.make_results_dict(npz_file)
         # make a temporary file for the gui data
-        results = cls.make_results(records, procedure)
+        results = make_results(results_dict, procedure)
         return results
 
     def calibrate(self):
@@ -196,7 +191,7 @@ class Sweep(SweepBaseProcedure):
         raise NotImplementedError
         
     @classmethod
-    def make_record_array(cls, npz_file):
+    def make_results_dict(cls, npz_file):
         raise NotImplementedError
         
     def noise_kwargs(self):
@@ -244,27 +239,19 @@ class Sweep1(Sweep):
         return data
    
     @classmethod
-    def make_record_array(cls, npz_file):
+    def make_results_dict(cls, npz_file):
         # get noise data
         try:
             noise_file = os.path.basename(npz_file.fid.name).split("_")
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_file = np.load(noise_file, allow_pickle=True)
-            psd = noise_file["psd"]
-            freqs = noise_file["f_psd"]
-            size2 = freqs[0, :].size
+            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            psd = noise_npz_file["psd"]
+            freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
-            size2 = 1
-            freqs = np.array([[np.nan]])
-            psd = np.array([[[(np.nan, np.nan)]]], dtype=[('I', np.float16), ('Q', np.float16)])
-        # create empty numpy structured array
-        size1 = npz_file["freqs"][0, :].size
-        size = max(size1, size2)
-        dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
-        records = np.empty((size,), dtype=dt)
-        records.fill(np.nan)
+            psd = None
+            freqs = None
         z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
         db0 = 10 * np.log10(1e-3 / 50)
@@ -272,19 +259,22 @@ class Sweep1(Sweep):
             warnings.simplefilter("ignore", category=RuntimeWarning)
             t = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - db0
         t[np.isinf(t)] = np.nan
-        records["f"][:size1] = npz_file["freqs"][0, :] 
-        records["i"][:size1] = npz_file["z"][0, :].real - z_offset_interp[0, :].real
-        records["q"][:size1] = npz_file["z"][0, :].imag - z_offset_interp[0, :].imag
-        records["t"][:size1] = t
-        records["i_psd"][:size2] = psd[0, 0, :]['I']
-        records["q_psd"][:size2] = psd[0, 0, :]['Q']
-        records["f_psd"][:size2] = freqs[0, :]
-        if not (npz_file["noise_bias"][1] == np.zeros(6)).all():
-            records["f_bias"][:1] = npz_file["noise_bias"][0]
-            records["t_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][1] + 1j * npz_file["noise_bias"][2]))
-            records["i_bias"][:1] = npz_file["noise_bias"][1]
-            records["q_bias"][:1] = npz_file["noise_bias"][2]
-        return records
+
+        result_dict = {"f": npz_file["freqs"][0, :],
+                       "i": npz_file["z"][0, :].real - z_offset_interp[0, :].real,
+                       "q": npz_file["z"][0, :].imag - z_offset_interp[0, :].imag,
+                       "t": t}
+        if psd is not None and freqs is not None:
+            result_dict.update({"i_psd": psd[0, 0, :]['I'],
+                                "q_psd": psd[0, 0, :]['Q'],
+                                "f_psd": freqs[0, :]})
+        if npz_file["noise_bias"][1].any():
+            result_dict.update({"f_bias": npz_file["noise_bias"][0],
+                                "t_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
+                                                               1j * npz_file["noise_bias"][2])),
+                                "i_bias": npz_file["noise_bias"][1],
+                                "q_bias": npz_file["noise_bias"][2]})
+        return result_dict
         
     def compute_noise_bias(self):
         z, frequencies, indices = self.fit_data()
@@ -370,27 +360,19 @@ class Sweep2(Sweep):
         return data
     
     @classmethod
-    def make_record_array(cls, npz_file):
+    def make_results_dict(cls, npz_file):
         # get noise data
         try:
             noise_file = os.path.basename(npz_file.fid.name).split("_")
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_file = np.load(noise_file, allow_pickle=True)
-            psd = noise_file["psd"]
-            freqs = noise_file["f_psd"]
-            size2 = freqs[0, :].size
+            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            psd = noise_npz_file["psd"]
+            freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
-            size2 = 1
-            freqs = np.array([[np.nan], [np.nan]])
-            psd = np.array([[[(np.nan, np.nan)]], [[(np.nan, np.nan)]]], dtype=[('I', np.float16), ('Q', np.float16)])
-        # create empty numpy structured array
-        size1 = npz_file["freqs"][0, :].size
-        size = max(size1, size2)
-        dt = list(zip(cls.DATA_COLUMNS, [float] * len(cls.DATA_COLUMNS)))
-        records = np.empty((size,), dtype=dt)
-        records.fill(np.nan)
+            psd = None
+            freqs = None
         z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
         db0 = 10 * np.log10(1e-3 / 50)
@@ -400,32 +382,35 @@ class Sweep2(Sweep):
             t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset_interp[1, :])) - db0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
-        records["f1"][:size1] = npz_file["freqs"][0, :] 
-        records["i1"][:size1] = npz_file["z"][0, :].real - z_offset_interp[0, :].real
-        records["q1"][:size1] = npz_file["z"][0, :].imag - z_offset_interp[0, :].imag
-        records["t1"][:size1] = t1
-        records["i1_psd"][:size2] = psd[0, 0, :]['I']
-        records["q1_psd"][:size2] = psd[0, 0, :]['Q']
-        records["f1_psd"][:size2] = freqs[0, :]
-        records["f2"][:size1] = npz_file["freqs"][1, :]
-        records["i2"][:size1] = npz_file["z"][1, :].real - z_offset_interp[1, :].real
-        records["q2"][:size1] = npz_file["z"][1, :].imag - z_offset_interp[1, :].imag
-        records["t2"][:size1] = t2
-        records["i2_psd"][:size2] = psd[1, 0, :]['I']
-        records["q2_psd"][:size2] = psd[1, 0, :]['Q']
-        records["f2_psd"][:size2] = freqs[1, :]
-        if not (npz_file["noise_bias"][1] == np.zeros(6)).all():
-            records["f1_bias"][:1] = npz_file["noise_bias"][0]
-            records["t1_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][1] + 1j * npz_file["noise_bias"][2]))
-            records["i1_bias"][:1] = npz_file["noise_bias"][1]
-            records["q1_bias"][:1] = npz_file["noise_bias"][2]
-            records["f2_bias"][:1] = npz_file["noise_bias"][3]
-            records["t2_bias"][:1] = 20 * np.log10(np.abs(npz_file["noise_bias"][4] + 1j * npz_file["noise_bias"][5]))
-            records["i2_bias"][:1] = npz_file["noise_bias"][4]
-            records["q2_bias"][:1] = npz_file["noise_bias"][5]
 
-        return records
-        
+        result_dict = {"f1": npz_file["freqs"][0, :],
+                       "i1": npz_file["z"][0, :].real - z_offset_interp[0, :].real,
+                       "q1": npz_file["z"][0, :].imag - z_offset_interp[0, :].imag,
+                       "t1": t1,
+                       "f2": npz_file["freqs"][1, :],
+                       "i2": npz_file["z"][1, :].real - z_offset_interp[1, :].real,
+                       "q2": npz_file["z"][1, :].imag - z_offset_interp[1, :].imag,
+                       "t2": t2}
+        if psd is not None and freqs is not None:
+            result_dict.update({"i_psd1": psd[0, 0, :]['I'],
+                                "q_psd1": psd[0, 0, :]['Q'],
+                                "f_psd1": freqs[0, :],
+                                "i_psd2": psd[1, 0, :]['I'],
+                                "q_psd2": psd[1, 0, :]['Q'],
+                                "f_psd2": freqs[1, :]})
+        if npz_file["noise_bias"][1].any():
+            result_dict.update({"f_bias1": npz_file["noise_bias"][0],
+                                "t_bias1": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
+                                                               1j * npz_file["noise_bias"][2])),
+                                "i_bias1": npz_file["noise_bias"][1],
+                                "q_bias1": npz_file["noise_bias"][2],
+                                "f_bias2": npz_file["noise_bias"][3],
+                                "t_bias2": 20 * np.log10(np.abs(npz_file["noise_bias"][4] +
+                                                                1j * npz_file["noise_bias"][5])),
+                                "i_bias2": npz_file["noise_bias"][4],
+                                "q_bias2": npz_file["noise_bias"][5] })
+        return result_dict
+
     def compute_noise_bias(self):
         z, frequencies, indices = self.fit_data()
 
@@ -748,8 +733,20 @@ class Pulse(MKIDProcedure):
         self.pulses = None
         self.metadata = {"parameters": {}}
         
-    def load(self):
-        raise NotImplementedError  #TODO: implement
+    @classmethod
+    def load(cls, file_path):
+        """
+        Load the procedure output into a pymeasure Results class instance for the GUI.
+        """
+        # load in the data
+        npz_file = np.load(file_path, allow_pickle=True)
+        # create empty numpy structured array
+        procedure = make_procedure_from_file(cls, npz_file)
+        # make array with data
+        results_dict = cls.make_results_dict(npz_file)
+        # make a temporary file for the gui data
+        results = make_results(results_dict, procedure)
+        return results
         
     def noise_kwargs(self):
         raise NotImplementedError
@@ -801,6 +798,32 @@ class Pulse1(Pulse):
                   'offset': 0,
                   'n_offset': 0}
         return kwargs
+
+    @classmethod
+    def make_results_dict(cls, npz_file):
+        # get noise data
+        try:
+            noise_file = os.path.basename(npz_file.fid.name).split("_")
+            noise_file[0] = "noise"
+            noise_file = "_".join(noise_file)
+            noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
+            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            psd = noise_npz_file["psd"]
+            freqs = noise_npz_file["f_psd"]
+        except FileNotFoundError:
+            psd = None
+            freqs = None
+        result = Sweep1.load(self.sweep_file)
+        result_dict = {'i_loop': result.data['i'],
+                       'q_loop': result.data['q'],
+                       'i': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
+                       'q': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0]}
+        if psd is not None and freqs is not None:
+            result_dict.update({"i_psd": psd[0, 0, :]['I'],
+                                "q_psd": psd[0, 0, :]['Q'],
+                                "f_psd": freqs[0, :]})
+        return result_dict
+
 
 
 class Pulse2(Pulse):
@@ -862,3 +885,35 @@ class Pulse2(Pulse):
                   'offset': 0,
                   'n_offset': 0}
         return kwargs
+
+    @classmethod
+    def make_results_dict(cls, npz_file):
+        # get noise data
+        try:
+            noise_file = os.path.basename(npz_file.fid.name).split("_")
+            noise_file[0] = "noise"
+            noise_file = "_".join(noise_file)
+            noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
+            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            psd = noise_npz_file["psd"]
+            freqs = noise_npz_file["f_psd"]
+        except FileNotFoundError:
+            psd = None
+            freqs = None
+        result = Sweep2.load(self.sweep_file)
+        result_dict = {'i1_loop': result.data['i1'],
+                       'q1_loop': result.data['q1'],
+                       'i1': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
+                       'q1': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0],
+                       'i2_loop': result.data['i2'],
+                       'q2_loop': result.data['q2'],
+                       'i2': npz_file['pulses']['I'][1, 0, :] - npz_file['offset']["I"][1],
+                       'q2': npz_file['pulses']['Q'][1, 0, :] - npz_file['offset']["Q"][1]}
+        if psd is not None and freqs is not None:
+            result_dict.update({"i_psd1": psd[0, 0, :]['I'],
+                                "q_psd1": psd[0, 0, :]['Q'],
+                                "f_psd1": freqs[0, :],
+                                "i_psd2": psd[1, 0, :]['I'],
+                                "q_psd2": psd[1, 0, :]['Q'],
+                                "f_psd2": freqs[1, :]})
+        return result_dict
