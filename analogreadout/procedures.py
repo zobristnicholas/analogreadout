@@ -9,6 +9,7 @@ from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results,
                          Indicator, FloatIndicator, FileParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
+from analogreadout.utils import load
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -175,7 +176,7 @@ class Sweep(SweepBaseProcedure):
         Load the procedure output into a pymeasure Results class instance for the GUI.
         """
         # load in the data
-        npz_file = np.load(file_path, allow_pickle=True)
+        npz_file = load(file_path, allow_pickle=True)
         # create empty numpy structured array
         procedure = make_procedure_from_file(cls, npz_file)
         # make array with data
@@ -246,7 +247,7 @@ class Sweep1(Sweep):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            noise_npz_file = load(noise_file, allow_pickle=True)
             psd = noise_npz_file["psd"]
             freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
@@ -367,7 +368,7 @@ class Sweep2(Sweep):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            noise_npz_file = load(noise_file, allow_pickle=True)
             psd = noise_npz_file["psd"]
             freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
@@ -401,14 +402,14 @@ class Sweep2(Sweep):
         if npz_file["noise_bias"][1].any():
             result_dict.update({"f_bias1": npz_file["noise_bias"][0],
                                 "t_bias1": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
-                                                               1j * npz_file["noise_bias"][2])),
+                                                                1j * npz_file["noise_bias"][2])),
                                 "i_bias1": npz_file["noise_bias"][1],
                                 "q_bias1": npz_file["noise_bias"][2],
                                 "f_bias2": npz_file["noise_bias"][3],
                                 "t_bias2": 20 * np.log10(np.abs(npz_file["noise_bias"][4] +
                                                                 1j * npz_file["noise_bias"][5])),
                                 "i_bias2": npz_file["noise_bias"][4],
-                                "q_bias2": npz_file["noise_bias"][5] })
+                                "q_bias2": npz_file["noise_bias"][5]})
         return result_dict
 
     def compute_noise_bias(self):
@@ -739,7 +740,7 @@ class Pulse(MKIDProcedure):
         Load the procedure output into a pymeasure Results class instance for the GUI.
         """
         # load in the data
-        npz_file = np.load(file_path, allow_pickle=True)
+        npz_file = load(file_path, allow_pickle=True)
         # create empty numpy structured array
         procedure = make_procedure_from_file(cls, npz_file)
         # make array with data
@@ -807,7 +808,7 @@ class Pulse1(Pulse):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            noise_npz_file = load(noise_file, allow_pickle=True)
             psd = noise_npz_file["psd"]
             freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
@@ -823,7 +824,6 @@ class Pulse1(Pulse):
                                 "q_psd": psd[0, 0, :]['Q'],
                                 "f_psd": freqs[0, :]})
         return result_dict
-
 
 
 class Pulse2(Pulse):
@@ -894,7 +894,7 @@ class Pulse2(Pulse):
             noise_file[0] = "noise"
             noise_file = "_".join(noise_file)
             noise_file = os.path.join(os.path.dirname(npz_file.fid.name), noise_file)
-            noise_npz_file = np.load(noise_file, allow_pickle=True)
+            noise_npz_file = load(noise_file, allow_pickle=True)
             psd = noise_npz_file["psd"]
             freqs = noise_npz_file["f_psd"]
         except FileNotFoundError:
