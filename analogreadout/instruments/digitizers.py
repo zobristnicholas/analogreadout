@@ -81,7 +81,7 @@ class DigitizerABC:
         return data
 
 
-class NI6120:
+class NI6120(DigitizerABC):
     def __init__(self):
         self.session = PyDAQmx.Task()
         self.device = "Dev1"
