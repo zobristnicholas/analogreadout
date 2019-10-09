@@ -269,7 +269,7 @@ class Sweep1(Sweep):
             result_dict.update({"i_psd": psd[0, 0, :]['I'],
                                 "q_psd": psd[0, 0, :]['Q'],
                                 "f_psd": freqs[0, :]})
-        if npz_file["noise_bias"][1].any():
+        if npz_file["noise_bias"].any():
             result_dict.update({"f_bias": npz_file["noise_bias"][0],
                                 "t_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
                                                                1j * npz_file["noise_bias"][2])),
@@ -393,23 +393,23 @@ class Sweep2(Sweep):
                        "q2": npz_file["z"][1, :].imag - z_offset_interp[1, :].imag,
                        "t2": t2}
         if psd is not None and freqs is not None:
-            result_dict.update({"i_psd1": psd[0, 0, :]['I'],
-                                "q_psd1": psd[0, 0, :]['Q'],
-                                "f_psd1": freqs[0, :],
-                                "i_psd2": psd[1, 0, :]['I'],
-                                "q_psd2": psd[1, 0, :]['Q'],
-                                "f_psd2": freqs[1, :]})
-        if npz_file["noise_bias"][1].any():
-            result_dict.update({"f_bias1": npz_file["noise_bias"][0],
-                                "t_bias1": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
+            result_dict.update({"i1_psd": psd[0, 0, :]['I'],
+                                "q1_psd": psd[0, 0, :]['Q'],
+                                "f1_psd": freqs[0, :],
+                                "i2_psd": psd[1, 0, :]['I'],
+                                "q2_psd": psd[1, 0, :]['Q'],
+                                "f2_psd": freqs[1, :]})
+        if npz_file["noise_bias"].any():
+            result_dict.update({"f1_bias": npz_file["noise_bias"][0],
+                                "t1_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
                                                                 1j * npz_file["noise_bias"][2])),
-                                "i_bias1": npz_file["noise_bias"][1],
-                                "q_bias1": npz_file["noise_bias"][2],
-                                "f_bias2": npz_file["noise_bias"][3],
-                                "t_bias2": 20 * np.log10(np.abs(npz_file["noise_bias"][4] +
+                                "i1_bias": npz_file["noise_bias"][1],
+                                "q1_bias": npz_file["noise_bias"][2],
+                                "f2_bias": npz_file["noise_bias"][3],
+                                "t2_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][4] +
                                                                 1j * npz_file["noise_bias"][5])),
-                                "i_bias2": npz_file["noise_bias"][4],
-                                "q_bias2": npz_file["noise_bias"][5]})
+                                "i2_bias": npz_file["noise_bias"][4],
+                                "q2_bias": npz_file["noise_bias"][5]})
         return result_dict
 
     def compute_noise_bias(self):
@@ -910,10 +910,10 @@ class Pulse2(Pulse):
                        'i2': npz_file['pulses']['I'][1, 0, :] - npz_file['offset']["I"][1],
                        'q2': npz_file['pulses']['Q'][1, 0, :] - npz_file['offset']["Q"][1]}
         if psd is not None and freqs is not None:
-            result_dict.update({"i_psd1": psd[0, 0, :]['I'],
-                                "q_psd1": psd[0, 0, :]['Q'],
-                                "f_psd1": freqs[0, :],
-                                "i_psd2": psd[1, 0, :]['I'],
-                                "q_psd2": psd[1, 0, :]['Q'],
-                                "f_psd2": freqs[1, :]})
+            result_dict.update({"i1_psd": psd[0, 0, :]['I'],
+                                "q1_psd": psd[0, 0, :]['Q'],
+                                "f1_psd": freqs[0, :],
+                                "i2_psd": psd[1, 0, :]['I'],
+                                "q2_psd": psd[1, 0, :]['Q'],
+                                "f2_psd": freqs[1, :]})
         return result_dict
