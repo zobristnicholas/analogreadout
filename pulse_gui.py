@@ -9,7 +9,7 @@ from pymeasure.display.Qt import QtGui
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
-from analogreadout.procedures import Pulse2
+from analogreadout.procedures import Pulse2, Pulse1
 from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
                          
 daq = None
@@ -63,38 +63,57 @@ def setup_logging():
     return log
 
     
-def pulse_window():
-    x_list = (('i1_loop', 'i1'), ('f1_psd', 'f1_psd'), ('i2_loop', 'i2'), ('f2_psd', 'f2_psd'))
-    y_list = (('q1_loop', 'q1'), ('i1_psd', 'q1_psd'), ('q2_loop', 'q2'), ('i2_psd', 'q2_psd'))
-    x_label = ("I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]")
-    y_label = ("Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]")
-    legend_list = (('Loop', 'Data'), ('I', 'Q'), ('Loop', 'Data'), ('I', 'Q'))
-    widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
-    names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
+def pulse_window(config="UCSB"):
+    # setup options
+    if config == "UCSB":
+        x_list = (('i1_loop', 'i1'), ('f1_psd', 'f1_psd'), ('i2_loop', 'i2'), ('f2_psd', 'f2_psd'))
+        y_list = (('q1_loop', 'q1'), ('i1_psd', 'q1_psd'), ('q2_loop', 'q2'), ('i2_psd', 'q2_psd'))
+        x_label = ("I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]")
+        y_label = ("Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]")
+        legend_list = (('Loop', 'Data'), ('I', 'Q'), ('Loop', 'Data'), ('I', 'Q'))
+        widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
+        names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
+        procedure_class = Pulse2
+    elif config == "JPL":
+        x_list = (('i_loop', 'i'), ('f_psd', 'f_psd'))
+        y_list = (('q_loop', 'q'), ('i_psd', 'q_psd'))
+        x_label = ("I [V]", "frequency [Hz]")
+        y_label = ("Q [V]", "PSD [V² / Hz]")
+        legend_list = (('Loop', 'Data'), ('I', 'Q'))
+        widgets_list = (PulsePlotWidget, NoisePlotWidget)
+        names_list = ('Data', 'Noise')
+        procedure_class = Pulse1
+    else:
+        raise ValueError("'{}' is not a valid configuration".format(config))
+    # setup indicators
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
     global temperature_updater
     temperature_updater = Updater()
-    w = PulseGUI(Pulse2, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
+    # make the window
+    w = PulseGUI(procedure_class, x_axes=x_list, y_axes=y_list, x_labels=x_label, y_labels=y_label,
                  legend_text=legend_list, plot_widget_classes=widgets_list, plot_names=names_list,
                  persistent_indicators=indicators)
     # create and connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     global daq
     if daq is not None:
-        Pulse2.connect_daq(daq)
+        procedure_class.connect_daq(daq)
     else:
-        daq = DAQ("UCSB")
-        Pulse2.connect_daq(daq)
+        daq = DAQ(config)
+        procedure_class.connect_daq(daq)
     return w
 
 
 if __name__ == '__main__':
-    # TODO: implement JPL/UCSB configuration switching
     setup_logging()
+    if len(sys.argv) > 1:
+        cfg = sys.argv.pop(1)
+    else:
+        cfg = "UCSB"
     app = QtGui.QApplication(sys.argv)
     # TODO: add pulse image for icon
     # app.setWindowIcon(get_image_icon("pulse.png"))
-    window = pulse_window()
+    window = pulse_window(cfg)
     window.activateWindow()
     window.show()
     ex = app.exec_()
