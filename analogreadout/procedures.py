@@ -640,8 +640,6 @@ class Pulse(MKIDProcedure):
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_trace = IntegerParameter("Data Points per Pulses", default=2000)
     noise = VectorParameter("Noise", default=[1, 1, 10], ui_class=NoiseInput)
-    ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
-    laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
     status_bar = Indicator("Status")
     
     count_rates = []
@@ -673,22 +671,20 @@ class Pulse(MKIDProcedure):
         self.offset['I'] = zero.real
         self.offset['Q'] = zero.imag
 
+   
         # initialize the system in the right mode (laser off)
         self.status_bar.value = "Computing noise level"
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
                             sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
         data = self.daq.adc.take_noise_data(1)
-        sigma = np.zeros(data.shape[0], dtype=[('I', np.float32), ('Q', np.float32)])
-        sigma['I'] = np.std(data['I'], axis=-1).flatten()
-        sigma['Q'] = np.std(data['Q'], axis=-1).flatten()
+        sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
+        sigma['I'] = np.std(data['I'].astype(np.float32), axis=-1).flatten()  # float32 to avoid overflow
+        sigma['Q'] = np.std(data['Q'].astype(np.float32), axis=-1).flatten()
         # take the data
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
         n_pulses = 0
-        n_plot = 10
         while n_pulses < self.n_pulses:
-            n_plot += 1
-            
             # channel, n_pulses, n_trace ['I' or 'Q']
             data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
 
@@ -703,10 +699,8 @@ class Pulse(MKIDProcedure):
             for index, count_rate in enumerate(self.count_rates):
                 count_rate.value = np.sum(triggers[index, :]) / (n_samples / (self.sample_rate * 1e6))
 
-            if n_plot * self.integration_time >= 10:  # plot every 10 seconds
-                pulses = self.get_pulse_data(data, triggers)
-                self.emit('results', pulses, clear=True)
-                n_plot = 0
+            pulses = self.get_pulse_data(data, triggers)
+            self.emit('results', pulses, clear=True)
 
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
@@ -757,6 +751,8 @@ class Pulse1(Pulse):
     frequency = FloatParameter("Bias Frequency", units="GHz", default=4.0)
     count_rate = FloatIndicator("Count Rate", units="Hz", default=0)
     count_rates = [count_rate]
+    ui = BooleanListInput.set_labels(["254 nm", "406.6 nm", "671 nm", "808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
+    laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0, 0, 0, 0], length=8, ui_class=ui)
     DATA_COLUMNS = ["i", "q", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd']
     
     def startup(self):
@@ -814,7 +810,7 @@ class Pulse1(Pulse):
         except FileNotFoundError:
             psd = None
             freqs = None
-        result = Sweep1.load(self.sweep_file)
+        result = Sweep1.load(cls.sweep_file)
         result_dict = {'i_loop': result.data['i'],
                        'q_loop': result.data['q'],
                        'i': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
@@ -833,6 +829,8 @@ class Pulse2(Pulse):
     count_rate1 = FloatIndicator("Channel 1 Count Rate", units="Hz", default=0)
     count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
     count_rates = [count_rate1, count_rate2]
+    ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
+    laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
 
     DATA_COLUMNS = ["i1", "q1", "i2", "q2", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd', 'f1_psd',
                     'i2_psd', 'q2_psd', 'f2_psd']
@@ -900,7 +898,7 @@ class Pulse2(Pulse):
         except FileNotFoundError:
             psd = None
             freqs = None
-        result = Sweep2.load(self.sweep_file)
+        result = Sweep2.load(cls.sweep_file)
         result_dict = {'i1_loop': result.data['i1'],
                        'q1_loop': result.data['q1'],
                        'i1': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
