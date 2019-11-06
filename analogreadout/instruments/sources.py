@@ -61,6 +61,8 @@ class LaserBox:
 
 
 class NotASource:
+    OFF_STATE = None
+    
     def __init__(self, name=''):
         self.name = name
         message = "{} source is not connected and was not initialized"
