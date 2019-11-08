@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy as np
-from functools import partial
+from functools import partialmethod
 from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Sweep1, Sweep2
@@ -74,7 +74,7 @@ def sweep_window(config="UCSB"):
     indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
     pulse_gui.temperature_updater = pulse_gui.Updater()
     # patch the function to open the pulse gui
-    SweepGUI.open_pulse_gui = partial(open_pulse_gui, bias=bias, config=config)
+    SweepGUI.open_pulse_gui = partialmethod(open_pulse_gui, bias=bias, config=config)
     # make the window
     w = SweepGUI(procedure_class, base_procedure_class=base_procedure_class, x_axes=x_list,
                  y_axes=y_list, x_labels=x_label, y_labels=y_label,
