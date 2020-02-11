@@ -678,8 +678,8 @@ class Pulse(MKIDProcedure):
                             sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
-        sigma['I'] = np.std(data['I'].astype(np.float32), axis=-1).flatten()  # float32 to avoid overflow
-        sigma['Q'] = np.std(data['Q'].astype(np.float32), axis=-1).flatten()
+        sigma['I'] = np.std(data['I'].astype(np.float32), axis=-1).ravel()  # float32 to avoid overflow
+        sigma['Q'] = np.std(data['Q'].astype(np.float32), axis=-1).ravel()
         # take the data
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)

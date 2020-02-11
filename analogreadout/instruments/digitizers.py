@@ -27,8 +27,8 @@ class DigitizerABC:
         raise NotImplementedError
     
     def take_noise_data(self, n_triggers):
-        n_channels = int(len(self.channels) / 2)
-        data = np.zeros((n_channels, n_triggers, int(self.samples_per_channel)),
+        n_channels = len(self.channels) // 2
+        data = np.empty((n_channels, n_triggers, int(self.samples_per_channel)),
                         dtype=[('I', np.float16), ('Q', np.float16)])
         for index in range(n_triggers):
             rand_time = np.random.random_sample() * 0.001  # no longer than a millisecond
@@ -40,35 +40,35 @@ class DigitizerABC:
         
     def take_pulse_data(self, trigger_level, n_sigma=4):
         # initialize data array
-        n_channels = int(len(self.channels) / 2)
+        n_channels = len(self.channels) // 2
         n_samples = int(self.samples_per_partition)
         # collect data
         sample = self.acquire_readings()
         # turn the trigger level into a sigma
-        sigma = np.zeros((sample.shape[0], 1))
+        sigma = np.empty((sample.shape[0], 1))
         sigma[::2, 0] = trigger_level['I']
         sigma[1::2, 0] = trigger_level['Q']
         # time ordered pulse indices
         logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * sigma
+        triggered = np.nonzero(logic.any(axis=0))[0]
         # enforce one trigger per n_samples
-        for index, value in enumerate(logic.T):
-            if value.any():
-                previous_triggers = np.any(logic[:, index - n_samples: index])
-                beginning_trigger = index < n_samples // 2
-                ending_trigger = index > self.samples_per_channel - n_samples // 2
-                if previous_triggers or beginning_trigger or ending_trigger:
-                    logic[:, index] = False
+        for index, trigger in enumerate(triggered):
+            previous_triggers = np.any(trigger - triggered[:index] < n_samples)
+            beginning_trigger = trigger < n_samples // 2
+            ending_trigger = trigger > samples_per_channel - n_samples // 2
+            if previous_triggers or beginning_trigger or ending_trigger:
+                logic[:, trigger] = False
         # create array of trigger channels
-        n_triggers = int(np.sum(logic))
-        triggers = np.zeros((n_channels, n_triggers), dtype=bool)
+        trigger_indices = np.nonzero(logic.any(axis=0))[0]
+        n_triggers = int(trigger_indices.size)
+        triggers = np.empty((n_channels, n_triggers), dtype=bool)
         # put triggers in dataset
-        data = np.zeros((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        trigger_indices = np.where(logic)
+        data = np.empty((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         ii = 0
-        for index, time_index in enumerate(trigger_indices[1]):
-            triggers[trigger_indices[0][index] // 2, ii] = True
+        for index, time_index in enumerate(trigger_indices):
+            triggers[:, ii] = logic[:, time_index].reshape((-1, 2)).any(axis=1)
             data[:, ii, :]['I'] = sample[::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
-            data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]            
+            data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
             ii += 1
         return data, triggers
 
@@ -138,7 +138,7 @@ class NI6120(DigitizerABC):
         self.session.StopTask()
 
         # get data
-        data = np.array(np.hsplit(data, n_channels))
+        data = data.reshape((n_channels, -1))
 
         return data
 
@@ -233,7 +233,7 @@ class Advantech1840(DigitizerABC):
         self.input_range_max = 0.1
         self.input_range_min = -1.0 * self.input_range_max
         # set default physical channel(s) to use
-        self.channels = [0, 1]  # I1, Q1
+        self.n_channels = [0, 1]  # I1, Q1
         # set default sample rate
         self.sample_rate = 2.5e6  # samples per second
         # set default number of samples per channel
@@ -272,7 +272,7 @@ class Advantech1840(DigitizerABC):
             if error:
                 raise RuntimeError(error)
             sample = self._matlab_to_numpy(sample)
-            data = np.zeros(n_channels // 2, dtype=np.complex64)
+            data = np.empty(n_channels // 2, dtype=np.complex64)
             for index in range(n_channels // 2):
                 data[index] = np.mean(sample[2 * index::n_channels] + 1j * sample[2 * index + 1::n_channels])
             return data
@@ -282,9 +282,7 @@ class Advantech1840(DigitizerABC):
         if error:
             raise RuntimeError(error)
         sample = self._matlab_to_numpy(sample)
-        data = np.empty((len(self.channels), int(self.samples_per_channel)))
-        for index, channel in enumerate(self.channels):
-            data[index, :] = sample[channel::len(self.channels), 0]
+        data = sample.reshape((-1, len(self.channels))).T
         return data   
     
     def reset(self):
