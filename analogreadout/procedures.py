@@ -661,6 +661,7 @@ class Pulse(MKIDProcedure):
         adc_atten = max(0, self.total_atten - self.attenuation)
         n_samples = int(self.integration_time * self.sample_rate * 1e6)
         self.status_bar.value = "Calibrating IQ mixer offset"
+
         # take zero point
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
@@ -671,7 +672,6 @@ class Pulse(MKIDProcedure):
         self.offset['I'] = zero.real
         self.offset['Q'] = zero.imag
 
-   
         # initialize the system in the right mode (laser off)
         self.status_bar.value = "Computing noise level"
         self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
@@ -680,10 +680,12 @@ class Pulse(MKIDProcedure):
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
         sigma['I'] = np.std(data['I'].astype(np.float32), axis=-1).ravel()  # float32 to avoid overflow
         sigma['Q'] = np.std(data['Q'].astype(np.float32), axis=-1).ravel()
+
         # take the data
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
         n_pulses = 0
+        amplitudes = np.zeros((data.shape[0], self.n_pulses))
         while n_pulses < self.n_pulses:
             # channel, n_pulses, n_trace ['I' or 'Q']
             data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
@@ -693,6 +695,9 @@ class Pulse(MKIDProcedure):
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
 
+            responses = np.sqrt(data[:, :space_left, :]['I']**2 + data[:, :space_left, :]['Q']**2)
+            amplitudes[:, n_pulses:n_pulses + new_pulses] = (np.max(responses, axis=2) - np.median(responses, axis=2))
+
             n_pulses += new_pulses
             self.emit("progress", n_pulses / self.n_pulses * 100)
 
@@ -701,16 +706,16 @@ class Pulse(MKIDProcedure):
 
             pulses = self.get_pulse_data(data, triggers)
             self.emit('results', pulses, clear=True)
+            self.emit_amplitude_data(amplitudes, new_pulses)
 
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
-        # turn laser off
-        self.daq.laser.set_state(self.daq.laser.OFF_STATE)
         # record system state after data taking
         self.metadata.update(self.daq.system_state())
 
     def shutdown(self):
+        self.daq.laser.set_state(self.daq.laser.OFF_STATE)  # turn laser off
         if self.pulses is not None:
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
@@ -726,6 +731,7 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = ""
         self.freqs = None
         self.pulses = None
+        self.offset = None
         self.metadata = {"parameters": {}}
         
     @classmethod
@@ -751,9 +757,10 @@ class Pulse1(Pulse):
     frequency = FloatParameter("Bias Frequency", units="GHz", default=4.0)
     count_rate = FloatIndicator("Count Rate", units="Hz", default=0)
     count_rates = [count_rate]
-    ui = BooleanListInput.set_labels(["254 nm", "406.6 nm", "671 nm", "808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
+    ui = BooleanListInput.set_labels(["254 nm", "406.6 nm", "671 nm", "808 nm", "920 nm", "980 nm", "1120 nm",
+                                      "1310 nm"])  # class factory
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0, 0, 0, 0], length=8, ui_class=ui)
-    DATA_COLUMNS = ["i", "q", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd']
+    DATA_COLUMNS = ["i", "q", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd', 'hist_x', 'hist_y']
     
     def startup(self):
         if self.should_stop():
@@ -782,6 +789,11 @@ class Pulse1(Pulse):
         except ValueError:  # attempt to get argmax of an empty sequence
             pass
         return data
+
+    def emit_amplitude_data(self, amplitudes, new_pulses):
+        bins, counts = np.histogram(amplitudes[amplitudes != 0], bins='auto')
+        data = {'hist_x': bins, 'hist_y': counts}
+        self.emit("results", data, clear=True)
         
     def noise_kwargs(self):
         kwargs = {'directory': self.directory,
@@ -811,10 +823,16 @@ class Pulse1(Pulse):
             psd = None
             freqs = None
         result = Sweep1.load(cls.sweep_file)
+
+        responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
+        amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
+        bins, counts = np.histogram(amplitudes[amplitudes != 0], bins='auto')
         result_dict = {'i_loop': result.data['i'],
                        'q_loop': result.data['q'],
                        'i': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
-                       'q': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0]}
+                       'q': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0],
+                       'hist_x': bins,
+                       'hist_y': counts}
         if psd is not None and freqs is not None:
             result_dict.update({"i_psd": psd[0, 0, :]['I'],
                                 "q_psd": psd[0, 0, :]['Q'],
@@ -833,7 +851,7 @@ class Pulse2(Pulse):
     laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
 
     DATA_COLUMNS = ["i1", "q1", "i2", "q2", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd', 'f1_psd',
-                    'i2_psd', 'q2_psd', 'f2_psd']
+                    'i2_psd', 'q2_psd', 'f2_psd', 'peaks1', 'peaks2']
 
     def startup(self):
         if self.should_stop():
@@ -869,6 +887,10 @@ class Pulse2(Pulse):
         except ValueError:  # attempt to get argmax of an empty sequence
             pass
         return data
+
+    def emit_amplitude_data(self, amplitudes, new_pulses):
+        data = {'peaks1': amplitudes[0, -new_pulses:], 'peaks2': amplitudes[1, -new_pulses:]}
+        self.emit("results", data)
         
     def noise_kwargs(self):
         kwargs = {'directory': self.directory,
@@ -898,6 +920,8 @@ class Pulse2(Pulse):
         except FileNotFoundError:
             psd = None
             freqs = None
+        responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
+        amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
         result = Sweep2.load(cls.sweep_file)
         result_dict = {'i1_loop': result.data['i1'],
                        'q1_loop': result.data['q1'],
@@ -906,7 +930,9 @@ class Pulse2(Pulse):
                        'i2_loop': result.data['i2'],
                        'q2_loop': result.data['q2'],
                        'i2': npz_file['pulses']['I'][1, 0, :] - npz_file['offset']["I"][1],
-                       'q2': npz_file['pulses']['Q'][1, 0, :] - npz_file['offset']["Q"][1]}
+                       'q2': npz_file['pulses']['Q'][1, 0, :] - npz_file['offset']["Q"][1],
+                       'peaks1': amplitudes[0],
+                       'peaks2': amplitudes[1]}
         if psd is not None and freqs is not None:
             result_dict.update({"i1_psd": psd[0, 0, :]['I'],
                                 "q1_psd": psd[0, 0, :]['Q'],

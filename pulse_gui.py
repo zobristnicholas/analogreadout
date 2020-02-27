@@ -10,7 +10,8 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
 from analogreadout.procedures import Pulse2, Pulse1
-from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWidget, TimePlotIndicator, get_image_icon)
+from mkidplotter import (PulseGUI, SweepPlotWidget, PulsePlotWidget, NoisePlotWidget, ScatterPlotWidget,
+                         HistogramPlotWidget, TimePlotIndicator, get_image_icon)
                          
 daq = None
 temperature_updater = None
@@ -66,22 +67,22 @@ def setup_logging():
 def pulse_window(config="UCSB"):
     # setup options
     if config == "UCSB":
-        x_list = (('i1_loop', 'i1'), ('f1_psd', 'f1_psd'), ('i2_loop', 'i2'), ('f2_psd', 'f2_psd'))
-        y_list = (('q1_loop', 'q1'), ('i1_psd', 'q1_psd'), ('q2_loop', 'q2'), ('i2_psd', 'q2_psd'))
-        x_label = ("I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]")
-        y_label = ("Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]")
-        legend_list = (('Loop', 'Data'), ('I', 'Q'), ('Loop', 'Data'), ('I', 'Q'))
-        widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget)
-        names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise')
+        x_list = (('i1_loop', 'i1'), ('f1_psd', 'f1_psd'), ('i2_loop', 'i2'), ('f2_psd', 'f2_psd'), ('peaks1',))
+        y_list = (('q1_loop', 'q1'), ('i1_psd', 'q1_psd'), ('q2_loop', 'q2'), ('i2_psd', 'q2_psd'), ('peaks2',))
+        x_label = ("I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]", "channel 1 pulse amplitudes |I + iQ|")
+        y_label = ("Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]", "channel 2 pulse amplitudes |I + iQ|")
+        legend_list = (('loop', 'data'), ('I', 'Q'), ('loop', 'data'), ('I', 'Q'), None)
+        widgets_list = (PulsePlotWidget, NoisePlotWidget, PulsePlotWidget, NoisePlotWidget, ScatterPlotWidget)
+        names_list = ('Channel 1: Data', 'Channel 1: Noise', 'Channel 2: Data', 'Channel 2: Noise', 'Amplitude Scatter')
         procedure_class = Pulse2
     elif config == "JPL":
-        x_list = (('i_loop', 'i'), ('f_psd', 'f_psd'))
-        y_list = (('q_loop', 'q'), ('i_psd', 'q_psd'))
-        x_label = ("I [V]", "frequency [Hz]")
-        y_label = ("Q [V]", "PSD [V² / Hz]")
-        legend_list = (('Loop', 'Data'), ('I', 'Q'))
-        widgets_list = (PulsePlotWidget, NoisePlotWidget)
-        names_list = ('Data', 'Noise')
+        x_list = (('i_loop', 'i'), ('f_psd', 'f_psd'), ('hist_x',))
+        y_list = (('q_loop', 'q'), ('i_psd', 'q_psd'), ('hist_y',))
+        x_label = ("I [V]", "frequency [Hz]", "pulse amplitudes |I + iQ|")
+        y_label = ("Q [V]", "PSD [V² / Hz]", "probability density")
+        legend_list = (('loop', 'data'), ('I', 'Q'), None)
+        widgets_list = (PulsePlotWidget, NoisePlotWidget, HistogramPlotWidget)
+        names_list = ('Data', 'Noise', 'Histogram')
         procedure_class = Pulse1
     else:
         raise ValueError("'{}' is not a valid configuration".format(config))
