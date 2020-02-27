@@ -64,12 +64,10 @@ class DigitizerABC:
         triggers = np.empty((n_channels, n_triggers), dtype=bool)
         # put triggers in dataset
         data = np.empty((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        ii = 0
-        for index, time_index in enumerate(trigger_indices):
+        for ii, time_index in enumerate(trigger_indices):
             triggers[:, ii] = logic[:, time_index].reshape((-1, 2)).any(axis=1)
             data[:, ii, :]['I'] = sample[::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
             data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
-            ii += 1
         return data, triggers
 
     def take_iq_point(self):
