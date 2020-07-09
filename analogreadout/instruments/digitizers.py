@@ -55,7 +55,7 @@ class DigitizerABC:
         for index, trigger in enumerate(triggered):
             previous_triggers = np.any(trigger - triggered[:index] < n_samples)
             beginning_trigger = trigger < n_samples // 2
-            ending_trigger = trigger > samples_per_channel - n_samples // 2
+            ending_trigger = trigger > self.samples_per_channel - n_samples // 2
             if previous_triggers or beginning_trigger or ending_trigger:
                 logic[:, trigger] = False
         # create array of trigger channels
