@@ -695,8 +695,9 @@ class Pulse(MKIDProcedure):
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
 
-            responses = np.sqrt(data[:, :space_left, :]['I']**2 + data[:, :space_left, :]['Q']**2)
-            amplitudes[:, n_pulses:n_pulses + new_pulses] = (np.max(responses, axis=2) - np.median(responses, axis=2))
+            responses_i = data[:, :space_left, :]['I'] - np.median(data[:, :space_left, :]['I'], axis=2, keepdims=True)
+            responses_q = data[:, :space_left, :]['Q'] - np.median(data[:, :space_left, :]['Q'], axis=2, keepdims=True)
+            amplitudes[:, n_pulses:n_pulses + new_pulses] = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
 
             n_pulses += new_pulses
             self.emit("progress", n_pulses / self.n_pulses * 100)
