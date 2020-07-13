@@ -2,7 +2,8 @@ import os
 import logging
 import numpy as np
 from time import sleep
-from scipy.ndimage.filters import median_filter
+from skimage.util import view_as_windows
+
 try:
     import PyDAQmx
     DAQmx_Val_Rising = PyDAQmx.DAQmxConstants.DAQmx_Val_Rising
@@ -38,10 +39,14 @@ class DigitizerABC:
             data[:, index, :]['Q'] = sample[1::2, :]
         return data
         
-    def take_pulse_data(self, trigger_level, n_sigma=4):
+    def take_pulse_data(self, trigger_level, n_sigma=4, dead_time=None):
         # initialize data array
         n_channels = len(self.channels) // 2
         n_samples = int(self.samples_per_partition)
+        if dead_time is None:  # dead time to sample units
+            dead_time = n_samples // 10
+        else:
+            dead_time = int(dead_time * self.sample_rate)
         # collect data
         sample = self.acquire_readings()
         # turn the trigger level into a sigma
@@ -52,22 +57,21 @@ class DigitizerABC:
         logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * sigma
         triggered = np.nonzero(logic.any(axis=0))[0]
         # enforce one trigger per n_samples
-        for index, trigger in enumerate(triggered):
-            previous_triggers = np.any(trigger - triggered[:index] < n_samples)
+        for trigger in triggered:
+            previous_triggers = logic[:, trigger - dead_time:trigger].any()
             beginning_trigger = trigger < n_samples // 2
             ending_trigger = trigger > self.samples_per_channel - n_samples // 2
             if previous_triggers or beginning_trigger or ending_trigger:
                 logic[:, trigger] = False
-        # create array of trigger channels
-        trigger_indices = np.nonzero(logic.any(axis=0))[0]
-        n_triggers = int(trigger_indices.size)
-        triggers = np.empty((n_channels, n_triggers), dtype=bool)
-        # put triggers in dataset
+        triggered = np.nonzero(logic.any(axis=0))[0]
+        n_triggers = int(triggered.size)
+        # recollect the data in fixed size windows around each trigger
+        triggered_offset = triggered - n_samples // 2
         data = np.empty((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        for ii, time_index in enumerate(trigger_indices):
-            triggers[:, ii] = logic[:, time_index].reshape((-1, 2)).any(axis=1)
-            data[:, ii, :]['I'] = sample[::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
-            data[:, ii, :]['Q'] = sample[1::2, time_index - n_samples // 2: time_index + n_samples // 2 + n_samples % 2]
+        data['I'] = view_as_windows(sample[::2, :], (2, n_samples))[0, triggered_offset].transpose(1, 0, 2)
+        data['Q'] = view_as_windows(sample[1::2, :], (2, n_samples))[0, triggered_offset].transpose(1, 0, 2)
+        # construct trigger boolean array indicating which channel caused the trigger
+        triggers = logic.reshape((-1, 2, int(self.samples_per_channel)))[:, :, triggered].any(axis=1)
         return data, triggers
 
     def take_iq_point(self):
@@ -139,26 +143,6 @@ class NI6120(DigitizerABC):
         data = data.reshape((n_channels, -1))
 
         return data
-
-    def _find_sigma_levels(self, search_length=50):
-        # define some sizes
-        n_kernel = int(self.samples_per_channel / self.trigger_factor)
-        n_kernel = n_kernel // 2 * 2 + 1  # round up to odd number for kernel size
-        n_samples = self.samples_per_channel - (n_kernel - 1)
-        n_channels = len(self.channels)
-        boundary = (n_kernel - 1) / 2
-        # compute the median absolute deviation for a bunch of acquisitions
-        mad_data = np.ones((n_channels, n_samples * search_length)) * np.inf
-        for index in range(search_length):
-            data = self._acquire_readings()
-            s = slice(index * n_samples, (index + 1) * n_samples)
-            mad_data[s] = median_filter(np.abs(data - np.median(data, axis=1)),
-                                        (1, n_kernel))[:, boundary:-boundary]
-        # the index with the smallest median absolute deviation has the least
-        # pulse contamination
-        indices = np.argmin(mad_data)
-        sigmas = 1.4826 * mad_data[range(mad_data.shape[0]), indices]
-        return sigmas
         
     def _create_channels(self, channels=None):
         """

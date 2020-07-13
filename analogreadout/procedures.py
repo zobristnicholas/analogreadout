@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 import scipy.signal as sig
 from scipy.interpolate import interp1d
+from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
                          Indicator, FloatIndicator, FileParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
@@ -636,6 +637,7 @@ class Pulse(MKIDProcedure):
     
     sigma = FloatParameter("N Sigma Trigger", default=4)
     integration_time = FloatParameter("Time Per Integration", units="s", default=1)
+    dead_time = FloatParameter("Dead Time", units="s", default=100e-6)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_trace = IntegerParameter("Data Points per Pulses", default=2000)
@@ -678,8 +680,8 @@ class Pulse(MKIDProcedure):
                             sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
-        sigma['I'] = np.std(data['I'].astype(np.float32), axis=-1).ravel()  # float32 to avoid overflow
-        sigma['Q'] = np.std(data['Q'].astype(np.float32), axis=-1).ravel()
+        sigma['I'] = median_abs_deviation(data['I'].astype(np.float64), scale='normal', axis=-1).ravel()
+        sigma['Q'] = median_abs_deviation(data['Q'].astype(np.float64), scale='normal', axis=-1).ravel()
 
         # take the data
         self.status_bar.value = "Taking pulse data"
@@ -688,7 +690,7 @@ class Pulse(MKIDProcedure):
         amplitudes = np.zeros((data.shape[0], self.n_pulses))
         while n_pulses < self.n_pulses:
             # channel, n_pulses, n_trace ['I' or 'Q']
-            data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma)
+            data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma, dead_time=self.dead_time)
 
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
