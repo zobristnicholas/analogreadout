@@ -68,8 +68,8 @@ class DigitizerABC:
         # recollect the data in fixed size windows around each trigger
         triggered_offset = triggered - n_samples // 2
         data = np.empty((n_channels, n_triggers, n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
-        data['I'] = view_as_windows(sample[::2, :], (2, n_samples))[0, triggered_offset].transpose(1, 0, 2)
-        data['Q'] = view_as_windows(sample[1::2, :], (2, n_samples))[0, triggered_offset].transpose(1, 0, 2)
+        data['I'] = view_as_windows(sample[::2, :], (n_channels, n_samples))[0, triggered_offset].transpose(1, 0, 2)
+        data['Q'] = view_as_windows(sample[1::2, :], (n_channels, n_samples))[0, triggered_offset].transpose(1, 0, 2)
         # construct trigger boolean array indicating which channel caused the trigger
         triggers = logic.reshape((-1, 2, int(self.samples_per_channel)))[:, :, triggered].any(axis=1)
         return data, triggers
