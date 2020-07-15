@@ -694,6 +694,8 @@ class Pulse(MKIDProcedure):
 
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
+            if isinstance(self.pulses, np.memmap):  # reload the mem-map so that we don't keep all the pulses in RAM
+                self.pulses = np.lib.format.open_memmap(self.pulses.filename, mode="r+")
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
 
@@ -728,7 +730,10 @@ class Pulse(MKIDProcedure):
         self.status_bar.value = "Saving pulse data to file"
         file_path = os.path.join(self.directory, self.file_name())
         log.info("Saving data to %s", file_path)
-        np.savez(file_path, freqs=self.freqs, pulses=self.pulses, zero=self.offset, metadata=self.metadata)
+        if isinstance(self.pulses, np.memmap):
+            np.savez(file_path, freqs=self.freqs, pulses=self.pulses.filename, zero=self.offset, metadata=self.metadata)
+        else:
+            np.savez(file_path, freqs=self.freqs, pulses=self.pulses, zero=self.offset, metadata=self.metadata)
 
     def clean_up(self):
         self.status_bar.value = ""
@@ -780,7 +785,10 @@ class Pulse1(Pulse):
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency])
-        self.pulses = np.zeros((1, self.n_pulses, self.n_trace), dtype=[('I', np.float16), ('Q', np.float16)])
+        # use a memmap so that large amounts of data can be taken
+        file_path = os.path.splitext(os.path.join(self.directory, self.file_name()))[0] + ".npy"
+        self.pulses = np.lib.format.open_memmap(file_path, mode="w+", shape=(1, self.n_pulses, self.n_trace),
+                                                dtype=[('I', np.float16), ('Q', np.float16)])
         self.offset = np.zeros(1, dtype=[('I', np.float32), ('Q', np.float32)])
         self.update_metadata() 
         
@@ -873,7 +881,10 @@ class Pulse2(Pulse):
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency1, self.frequency2])
-        self.pulses = np.zeros((2, self.n_pulses, self.n_trace), dtype=[('I', np.float16), ('Q', np.float16)])
+        # use a memmap so that large amounts of data can be taken
+        file_path = os.path.splitext(os.path.join(self.directory, self.file_name()))[0] + ".npy"
+        self.pulses = np.lib.format.open_memmap(file_path, mode="w+", shape=(2, self.n_pulses, self.n_trace),
+                                                dtype=[('I', np.float16), ('Q', np.float16)])
         self.offset = np.zeros(2, dtype=[('I', np.float32), ('Q', np.float32)])
         self.update_metadata()
         
