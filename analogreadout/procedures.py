@@ -79,6 +79,7 @@ class Sweep(SweepBaseProcedure):
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
+        # TODO: properly handle nan frequency input by shutting off the corresponding synthesizer 
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
