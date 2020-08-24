@@ -18,14 +18,15 @@ log.addHandler(logging.NullHandler())
 STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
-def median_abs_deviation(x, scale=1.0):  # stand in for scipy.stats median_abs_deviation which doesn't exist until version 1.5
+# stand in for scipy.stats median_abs_deviation which doesn't exist until version 1.5
+def median_abs_deviation(x, scale=1.0, axis=None):
     if isinstance(scale, str):
         if scale.lower() == 'normal':
             scale = 0.6744897501960817  # special.ndtri(0.75)
     else:
         raise ValueError("{} is not a valid scale value.".format(scale))
-    med = np.median(x, axis=None)
-    mad = np.median(np.abs(x - med))
+    med = np.median(x, axis=axis)
+    mad = np.median(np.abs(x - med), axis=axis)
     return mad / scale
 
   
