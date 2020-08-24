@@ -25,7 +25,7 @@ def median_abs_deviation(x, scale=1.0, axis=None):
             scale = 0.6744897501960817  # special.ndtri(0.75)
     else:
         raise ValueError("{} is not a valid scale value.".format(scale))
-    med = np.median(x, axis=axis)
+    med = np.median(x, axis=axis, keepdims=True)
     mad = np.median(np.abs(x - med), axis=axis)
     return mad / scale
 
