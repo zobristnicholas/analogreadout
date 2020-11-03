@@ -69,7 +69,7 @@ class LakeShore370AC(LS370):
             resistance_log.info(str(res) + ' Ohm')
             return res
         
-    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
+    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10, stop=None):
         if max_wait <= 0 or self.calibration(temperature) <= 0 or self._set_point == temperature:
             return
         log.debug("Setting temperature to {} mK".format(temperature))
@@ -96,7 +96,10 @@ class LakeShore370AC(LS370):
             else:
                 previous_temperature = current_temperature
             n_sleep += 1
-            sleep(60)
+            for ii in range(20):  # sleep for 60 seconds while checking if we are stopping
+                sleep(3)
+                if callable(stop) and stop():
+                    return
                 
     def set_range(self, heater_range=5):
         self.heater.range = Heater.RANGE[heater_range] 
