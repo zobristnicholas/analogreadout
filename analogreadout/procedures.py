@@ -76,6 +76,7 @@ class Sweep(SweepBaseProcedure):
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
         # TODO: set_field when there's an instrument hooked up
+        self.status_bar.value = "Setting temperature"
         self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max, stop=self.should_stop)
         if self.should_stop():
             log.warning(STOP_WARNING.format(self.__class__.__name__))
