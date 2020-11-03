@@ -136,7 +136,6 @@ class Sweep(SweepBaseProcedure):
                          indicators={"status_bar": self.status_bar}, **noise_kwargs)
 
     def shutdown(self):
-        self.daq.thermometer.set_heater_output(0)
         if self.z is not None:
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
