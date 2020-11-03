@@ -76,7 +76,10 @@ class Sweep(SweepBaseProcedure):
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
         # TODO: set_field when there's an instrument hooked up
-        self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max)
+        self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max, stop=self.should_stop)
+        if self.should_stop():
+            log.warning(STOP_WARNING.format(self.__class__.__name__))
+            return
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
@@ -132,6 +135,7 @@ class Sweep(SweepBaseProcedure):
                          indicators={"status_bar": self.status_bar}, **noise_kwargs)
 
     def shutdown(self):
+        self.daq.thermometer.set_heater_output(0)
         if self.z is not None:
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
