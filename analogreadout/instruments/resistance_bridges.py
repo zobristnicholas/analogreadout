@@ -171,7 +171,7 @@ class NotAThermometer(LS370):
     def initialize(self):
         pass
 
-    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10):
+    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10, stop=None):
         pass
     
     def set_range(self, heater_range=5):
