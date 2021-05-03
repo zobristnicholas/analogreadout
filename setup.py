@@ -13,6 +13,6 @@ setup(name='analogreadout',
                         "numpy",
                         "scipy",
                         "slave",
-                        "skimage"],
+                        "scikit-image"],
       scripts=['sweep_gui.py', 'pulse_gui.py'],
       zip_safe=False)
