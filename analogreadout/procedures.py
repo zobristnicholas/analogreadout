@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import scipy.signal as sig
 from scipy.interpolate import interp1d
-# from scipy.stats import median_abs_deviation  # TODO: uncomment when we can use a modern version of python
+from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
                          Indicator, FloatIndicator, FileParameter)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
@@ -18,18 +18,6 @@ log.addHandler(logging.NullHandler())
 STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
-# stand in for scipy.stats median_abs_deviation which doesn't exist until version 1.5
-def median_abs_deviation(x, scale=1.0, axis=None):
-    if isinstance(scale, str):
-        if scale.lower() == 'normal':
-            scale = 0.6744897501960817  # special.ndtri(0.75)
-    else:
-        raise ValueError("{} is not a valid scale value.".format(scale))
-    med = np.median(x, axis=axis, keepdims=True)
-    mad = np.median(np.abs(x - med), axis=axis)
-    return mad / scale
-
-  
 def make_procedure_from_file(cls, npz_file):
     # load in the data
     metadata = npz_file['metadata'].item()
