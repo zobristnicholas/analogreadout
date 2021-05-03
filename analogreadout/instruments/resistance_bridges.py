@@ -1,7 +1,7 @@
-import visa
 import logging
 import threading
 import numpy as np
+import pyvisa as visa
 from time import sleep
 from slave.types import Integer
 from scipy.interpolate import interp1d

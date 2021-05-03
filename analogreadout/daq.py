@@ -1,8 +1,8 @@
 import os
-import visa
 import logging
 import importlib
 import numpy as np
+import pyvisa as visa
 from time import sleep
 from datetime import datetime
 from pymeasure.experiment import Parameter

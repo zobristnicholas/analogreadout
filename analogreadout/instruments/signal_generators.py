@@ -1,6 +1,6 @@
-import visa
 import logging
 import numpy as np
+import pyvisa as visa
 from time import sleep
 
 log = logging.getLogger(__name__)
