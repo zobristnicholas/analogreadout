@@ -33,7 +33,7 @@ def ucsb_config():
     sig_gen_arguments = [('USB0::0x0B5B::0xFFE0::084510::INSTR',),  # bottom (ch 1)
                          ('USB0::0x0B5B::0xFFE0::084511::INSTR',)]  # top (ch 2)
     sig_gen_types = ["AnritsuMG37022A", "AnritsuMG37022A"]
-    atten_address = "GPIB2::10::INSTR"
+    atten_address = "GPIB0::10::INSTR"
     dac_config = {"dac": {"instrument": "MultipleSignalGenerators",
                           "arguments": (sig_gen_types, sig_gen_arguments),
                           "location": "signal_generators", "power": [14, 14]},
