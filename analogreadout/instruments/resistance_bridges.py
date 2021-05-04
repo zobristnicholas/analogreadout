@@ -3,10 +3,9 @@ import threading
 import numpy as np
 import pyvisa as visa
 from time import sleep
-from slave.types import Integer
 from scipy.interpolate import interp1d
-from slave.lakeshore.ls370 import LS370, Heater
-from slave.transport import Visa, SimulatedTransport
+from analogreadout.external.lakeshore370ac.ls370 import LS370, Heater
+from analogreadout.external.lakeshore370ac.transport import Visa, SimulatedTransport
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -16,8 +15,6 @@ resistance_log = logging.getLogger('resistance')
 resistance_log.addHandler(logging.NullHandler())
 
 
-# patch Integer type in slaves module
-Integer.__convert__ = lambda self, value: int(float(value))
 LOCK = threading.Lock()
 
 
