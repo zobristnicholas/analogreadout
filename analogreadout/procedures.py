@@ -336,12 +336,12 @@ class Sweep2(Sweep):
             self.freqs = self.freqs[:, ::-1]
         self.freqs = np.round(self.freqs, 9)  # round to nearest Hz 
         self.z = np.zeros(self.freqs.shape, dtype=np.complex64)
-        # at least 0.1 MHz spacing
+        # at least 0.5 MHz spacing
         span = max(self.span1, self.span2)
         self.f_offset = np.vstack((np.linspace(self.freqs[0, :].min(), self.freqs[0, :].max(),
-                                               int(max(3, 10 * span + 1))),
+                                               int(max(3, 2 * span + 1))),
                                    np.linspace(self.freqs[1, :].min(), self.freqs[1, :].max(),
-                                               int(max(3, 10 * span + 1)))))
+                                               int(max(3, 2 * span + 1)))))
         self.z_offset = np.zeros(self.f_offset.shape, dtype=np.complex64)
         self.calibration = np.zeros((2, 3, self.n_samples), dtype=[('I', np.float16), ('Q', np.float16)])
         self.noise_bias = np.zeros(6)
