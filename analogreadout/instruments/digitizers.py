@@ -89,7 +89,7 @@ class NI6120(DigitizerABC):
         self.device = "Dev1"
         # set timeout value
         self.timeout = 20.0  # seconds
-        self.read = PyDAQmx.int32()  # for sampsPerChanRead
+        self.read = PyDAQmx.byref(PyDAQmx.int32())  # for sampsPerChanRead
         # set default input range, can be 42, 20, 10, 5, 2, 1, 0.5, 0.2 Volts
         self.input_range_max = 0.2
         self.input_range_min = -1.0 * self.input_range_max
@@ -102,6 +102,8 @@ class NI6120(DigitizerABC):
         self.samples_per_channel = 2e4
         # set trace / collection ratio for pulse data
         self.samples_per_partition = 2000
+        # empty data object to hold data from acquire data
+        self.data = None
         # collect more data than requested at a time to trigger on pulses
         log.info("Connected to: National Instruments PCI-6120")
 
@@ -111,6 +113,7 @@ class NI6120(DigitizerABC):
         self._set_channel_coupling()
         self._disable_aa_filter()
         self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples, n_trace=n_trace)
+        self._initialize_data()
 
     def reset(self):
         """
@@ -125,24 +128,15 @@ class NI6120(DigitizerABC):
         Returns the digitized readings for two channels. An array is returned of shape
         (self.channels.size, self.samples_per_channel) and dtype =  np.float64
         """
-        n_channels = len(self.channels)
-        size = np.int(self.samples_per_channel * n_channels)
-        data = np.empty((size,), dtype=np.float64)
-
         self.session.StartTask()
-        # byref() Returns a pointer lookalike to a C instance
-        samples_per_channel_read = PyDAQmx.byref(self.read)
-        # as opposed to DAQmx_Val_GroupByScanNumber
-        fill_mode = DAQmx_Val_GroupByChannel
 
-        self.session.ReadAnalogF64(np.int(self.samples_per_channel), self.timeout,
-                                   fill_mode, data, size, samples_per_channel_read, None)
+        self.session.ReadAnalogF64(int(self.samples_per_channel), self.timeout,
+                                   DAQmx_Val_GroupByChannel, self.data,
+                                   self.data.size, self.read, None)
+        self.session.WaitUntilTaskDone(-1)
         self.session.StopTask()
 
-        # get data
-        data = data.reshape((n_channels, -1))
-
-        return data
+        return self.data.reshape((len(self.channels), -1))
         
     def _create_channels(self, channels=None):
         """
@@ -198,12 +192,11 @@ class NI6120(DigitizerABC):
         error = self.session.SetAILowpassEnable("", 0)
         return error
 
-    def _calibrate(self):
-        """
-        Calibrate the digitizer.
-        """
-        error = self.session.DAQmxSelfCal(self.device)
-        return error
+    def _initialize_data(self):
+        """Recreate the data array"""
+        n_channels = len(self.channels)
+        size = np.int(self.samples_per_channel * n_channels)
+        self.data = np.empty((size,), dtype=np.float64)
 
 
 class Advantech1840(DigitizerABC):
