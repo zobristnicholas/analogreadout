@@ -69,14 +69,14 @@ class Sweep(SweepBaseProcedure):
         if self.should_stop():
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
-        # calibrate the data (if possible)
-        self.calibrate()
+
         # initialize the system in the right mode
-        # TODO: properly handle nan frequency input by shutting off the corresponding synthesizer 
+        # TODO: properly handle nan frequency input by shutting off the corresponding synthesizer
+        adc_atten = max(0, self.total_atten - self.attenuation)
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
-            self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=np.inf,
+            self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=adc_atten,
                                 sample_rate=self.sample_rate * 1e6, n_samples=25 * self.n_samples)
         # loop through the frequencies and take data
         self.status_bar.value = "Calibrating IQ mixer offset"
@@ -91,11 +91,12 @@ class Sweep(SweepBaseProcedure):
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
         self.compute_offset()
+        # calibrate the data (if possible)
+        self.calibrate()
         # initialize the system in the right mode
         self.status_bar.value = "Sweeping"
-        adc_atten = max(0, self.total_atten - self.attenuation)
-        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
+        self.daq.dac_atten.set_attenuation(self.attenuation)
+        self.daq.adc.initialize(sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # loop through the frequencies and take data
         for index, _ in enumerate(self.freqs[0, :]):
             self.daq.dac.set_frequency(self.freqs[:, index])
@@ -454,9 +455,8 @@ class Sweep2(Sweep):
     def calibrate(self):
         self.status_bar.value = "Calibrating IQ mixer phase and amplitude imbalance"
         # initialize in noise data mode
-        adc_atten = max(0, self.total_atten - self.attenuation)
-        self.daq.initialize(self.freqs[:, 0], dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
+        self.daq.dac_atten.set_attenuation(self.attenuation)
+        self.daq.adc.initialize(sample_rate=self.sample_rate * 1e6, n_samples=self.n_samples)
         # channel 1 lowest frequency
         self.daq.dac.set_frequency([self.freqs[0, 0], self.freqs[0, 0] + 1e-5])
         self.calibration[0, 0, :] = self.daq.adc.take_noise_data(1)[0]
