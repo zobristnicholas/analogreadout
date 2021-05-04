@@ -3,6 +3,7 @@ import logging
 import importlib
 import numpy as np
 import pyvisa as visa
+from pyvisa import constants
 from time import sleep
 from datetime import datetime
 from pymeasure.experiment import Parameter
@@ -11,7 +12,6 @@ from analogreadout.instruments.sources import NotASource
 from analogreadout.instruments.sensors import NotASensor
 from analogreadout.instruments.attenuators import NotAnAttenuator
 from analogreadout.instruments.resistance_bridges import NotAThermometer
-from analogreadout.functions import take_noise_data, do_iq_sweep, take_pulse_data
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -31,8 +31,8 @@ def get_instrument(dictionary):
     try:
         return getattr(library, instrument)(*dictionary['arguments'])
     except visa.VisaIOError as error:
-        busy = (error.error_code == visa.constants.VI_ERROR_MACHINE_NAVAIL or
-                error.error_code == visa.constants.StatusCode.error_resource_busy)
+        busy = (error.error_code == constants.VI_ERROR_MACHINE_NAVAIL or
+                error.error_code == constants.StatusCode.error_resource_busy)
         if busy:
             message = ("The '{}' instrument is busy. If another program is using it, try "
                        "closing it or moving the instrument to a non-serial connection")
@@ -162,46 +162,6 @@ class DAQ:
             file_name = None
         return file_name   
 
-    def take_noise_data(self, *args, **kwargs):
-        """
-        Take noise data.
-        Args:
-            frequency: frequency [GHz]
-            dac_atten: dac attenuation [dB]
-            n_triggers: number of noise triggers (int)
-            directory: folder where data should be saved (string)
-            power: dac power [dB] (optional, should be set by configuration)
-            adc_atten: adc attenuation [dB] (optional, defaults to 0)
-            sample_rate: sample rate of adc [Hz] (optional, defaults to 2e6)
-            verbose: print information about the system (optional, defaults to True)
-        
-        Returns:
-            file_path: full path where the data was saved
-        """
-        if "power" not in kwargs.keys():
-            kwargs.update({"power": self.config['dac']['dac']['power']})
-        return take_noise_data(self.daq, *args, **kwargs)
-
-    def take_pulse_data(self, *args, **kwargs):
-        """
-        Take pulse data.
-        Args:
-            frequency: frequency [GHz]
-            dac_atten: dac attenuation [dB]
-            n_triggers: number of noise triggers (int)
-            directory: folder where data should be saved (string)
-            power: dac power [dB] (optional, should be set by configuration)
-            adc_atten: adc attenuation [dB] (optional, defaults to 0)
-            sample_rate: sample rate of adc (float, defaults to 2e6 Hz)
-            verbose: print information about the system (bool, defaults to True)
-            
-        Returns:
-            file_path: full path where the data was saved
-        """
-        if "power" not in kwargs.keys():
-            kwargs.update({"power": self.config['dac']['dac']['power']})
-        return take_pulse_data(self.daq, *args, **kwargs)
-        
     def initialize(self, frequency, power=None, dac_atten=0, adc_atten=0,
                    sample_rate=None, n_samples=None, n_trace=None, channels=None, laser_state=None):
         """
@@ -264,7 +224,7 @@ class DAQ:
                 pass
             except Exception as error:
                 message = "The '{}' instrument was unable to reset: "
-                log.warning(message.format(instrument.__class__.__name__) + error)
+                log.warning(message.format(instrument.__class__.__name__) + str(error))
         
     def system_state(self):
         """
@@ -281,5 +241,5 @@ class DAQ:
                        'resistance': (np.mean(resistances), np.std(resistances))}
             
         state = {datetime.now().strftime('%Y%m%d_%H%M%S'):
-                     {"thermometer": thermometer, "primary_amplifier": self.primary_amplifier.read_value()}}
+                 {"thermometer": thermometer, "primary_amplifier": self.primary_amplifier.read_value()}}
         return state
