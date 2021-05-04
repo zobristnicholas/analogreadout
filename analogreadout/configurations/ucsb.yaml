@@ -30,7 +30,7 @@ sensors:
   thermometer:
     arguments:
     - visa://blackfridge.physics.ucsb.edu/ASRL1::INSTR
-    - 6
+    - 7
     - '3716'
     instrument: LakeShore370AC
     location: resistance_bridges
