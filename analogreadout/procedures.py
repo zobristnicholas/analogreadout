@@ -54,8 +54,7 @@ class Sweep(SweepBaseProcedure):
     n_points = IntegerParameter("Number of Points", default=500)
     total_atten = FloatParameter("Total Attenuation", units="dB", default=0)
     reverse_sweep = BooleanParameter("Reverse Sweep Direction", default=False)
-    wait_temp_min = IntegerParameter("Set Temperature Minimum Wait Time", units="minutes", default=0)
-    wait_temp_max = IntegerParameter("Set Temperature Maximum Wait Time", units="minutes", default=0)
+    wait_temp = FloatParameter("Set Temperature Wait Time", units="minutes", default=0)
     noise = VectorParameter("Noise", length=6, default=[1, 1, 10, 1, -2, 1], ui_class=NoiseInput)
     status_bar = Indicator("Status")
 
@@ -65,7 +64,7 @@ class Sweep(SweepBaseProcedure):
             return
         # TODO: set_field when there's an instrument hooked up
         self.status_bar.value = "Setting temperature"
-        self.daq.thermometer.set_temperature(self.temperature, min_wait=self.wait_temp_min, max_wait=self.wait_temp_max, stop=self.should_stop)
+        self.daq.thermometer.set_temperature(self.temperature, wait=self.wait_temp, stop=self.should_stop)
         if self.should_stop():
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return

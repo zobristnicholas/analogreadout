@@ -40,7 +40,7 @@ class LakeShore370AC(LS370):
         self.input.scan = self.channel, False
         sleep(self.WAIT_MEASURE)
         # lowest bias setting (may be modified to a different setting later)
-        if self._set_point is not None and self._set_point > 50:
+        if self._set_point is not None and self._set_point > 100:
             self.set_bias(3, 'voltage')
         else:
             self.set_bias(2, 'voltage')
@@ -61,32 +61,26 @@ class LakeShore370AC(LS370):
             resistance_log.info(str(res) + ' Ohm')
             return res
         
-    def set_temperature(self, temperature, heater_range=5, max_wait=60, min_wait=10, stop=None):
-        if max_wait <= 0 or self.calibration(temperature) <= 0 or self._set_point == temperature:
+    def set_temperature(self, temperature, heater_range=5, wait=30, stop=None):
+        if wait <= 0 or self.calibration(temperature) <= 0 or self._set_point == temperature:
             return
         log.debug("Setting temperature to {} mK".format(temperature))
         self._set_point = temperature
         self.set_range(heater_range)
-        if temperature < 50:
+        if temperature < 100:
             self.set_bias(2, 'voltage')
         else:
             self.set_bias(3, 'voltage')
         previous_temperature = 0
         n_sleep, n_eq = 0, 0
         self.set_heater_output(self.calibration(temperature))
-        while n_sleep < max_wait and n_eq < min_wait:
+        while n_sleep < wait:
             temperatures = []
             for _ in range(10):
                 t = self.temperature * 1000
                 temperatures.append(t)
             current_temperature = np.mean(temperatures)
             log.info("Current temperature: {:.2f} +/- {:.2f} mK".format(current_temperature, np.std(temperatures)))
-            deviation = np.abs(previous_temperature - current_temperature)
-
-            if deviation < np.std(temperatures):
-                n_eq += 1
-            else:
-                previous_temperature = current_temperature
             n_sleep += 1
             for ii in range(20):  # sleep for 60 seconds while checking if we are stopping
                 sleep(3)
