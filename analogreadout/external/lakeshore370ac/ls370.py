@@ -658,6 +658,7 @@ class LS370(IEC60488):
         self.user_curve = tuple(
             Curve(transport, self._protocol, i, 200) for i in range(1, 21)
         )
+        self.heater = Heater(self._transport, self._protocol)
 
         def make_zone(i):
             """Helper function to create a zone command."""

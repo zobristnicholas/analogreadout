@@ -3,8 +3,9 @@ import threading
 import numpy as np
 import pyvisa as visa
 from time import sleep
+from pyvisa.constants import Parity
 from scipy.interpolate import interp1d
-from analogreadout.external.lakeshore370ac.ls370 import LS370, Heater
+from analogreadout.external.lakeshore370ac.ls370 import LS370
 from analogreadout.external.lakeshore370ac.transport import Visa, SimulatedTransport
 
 log = logging.getLogger(__name__)
@@ -23,10 +24,7 @@ class LakeShore370AC(LS370):
 
     def __init__(self, address, channel, scanner=None):
         self.channel = channel
-        transport = Visa(address)            
-        # change data format for RS-232 serial control
-        transport._instrument.parity = visa.constants.Parity.odd
-        transport._instrument.data_bits = 7
+        transport = Visa(address, parity=Parity.odd, data_bits=7)
         super().__init__(transport, scanner=scanner)
         identity = self.identification
         self.identity = [s.strip() for s in identity]
@@ -35,8 +33,6 @@ class LakeShore370AC(LS370):
         temperatures = [-1, 9.1, 11.4, 16.2, 22, 28.2, 34.3, 40.6, 46.7, 53, 59.3, 65.5, 71.5, 78, 84, 90, 96, 104]
         percentages = [0, 0, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 47, 50]
         self.calibration = interp1d(temperatures, percentages)
-        # patch for missing heater        
-        self.heater = Heater(self._transport, self._protocol)
         # keep track of set point so that you don't have to keep waiting if the temperature isn't changing
         self._set_point = None
         
@@ -99,7 +95,7 @@ class LakeShore370AC(LS370):
                     return
                 
     def set_range(self, heater_range=5):
-        self.heater.range = Heater.RANGE[heater_range] 
+        self.heater.range = self.heater.RANGE[heater_range]
         sleep(self.WAIT_MEASURE)
         
     def set_heater_output(self, level):
@@ -139,7 +135,7 @@ class LakeShore370AC(LS370):
         
     def close(self):
         try:
-            self.heater.range = Heater.RANGE[0]
+            self.heater.range = self.heater.RANGE[0]
         except NameError:
             pass
         self._transport._instrument.close()
