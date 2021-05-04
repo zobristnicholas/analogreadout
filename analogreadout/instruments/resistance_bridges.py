@@ -31,7 +31,7 @@ class LakeShore370AC(LS370):
 
         temperatures = [-1, 9.1, 11.4, 16.2, 22, 28.2, 34.3, 40.6, 46.7, 53, 59.3, 65.5, 71.5, 78, 84, 90, 96, 104]
         percentages = [0, 0, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 47, 50]
-        self.calibration = interp1d(temperatures, percentages)
+        self.calibration = interp1d(temperatures, percentages, bounds_error=False, fill_value='extrapolate')
         # keep track of set point so that you don't have to keep waiting if the temperature isn't changing
         self._set_point = None
         
