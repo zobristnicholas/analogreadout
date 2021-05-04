@@ -50,7 +50,7 @@ class LakeShore370AC(LS370):
         with LOCK:
             temp = self.input[self.channel - 1].kelvin
             sleep(self.WAIT_MEASURE)
-            temperature_log.info(str(temp * 1000) + ' mK')
+            temperature_log.info(f"{temp * 1000:g} mK")
             return temp
     
     @property
@@ -58,7 +58,7 @@ class LakeShore370AC(LS370):
         with LOCK:
             res = self.input[self.channel - 1].resistance
             sleep(self.WAIT_MEASURE)
-            resistance_log.info(str(res) + ' Ohm')
+            resistance_log.info(f"{res:g} Ohm")
             return res
         
     def set_temperature(self, temperature, heater_range=5, wait=30, stop=None):
@@ -71,8 +71,7 @@ class LakeShore370AC(LS370):
             self.set_bias(2, 'voltage')
         else:
             self.set_bias(3, 'voltage')
-        previous_temperature = 0
-        n_sleep, n_eq = 0, 0
+        n_sleep = 0
         self.set_heater_output(self.calibration(temperature))
         while n_sleep < wait:
             temperatures = []
