@@ -1,13 +1,14 @@
 import os
+import yaml
 import logging
 import importlib
 import numpy as np
 import pyvisa as visa
+import yaml
 from pyvisa import constants
 from time import sleep
 from datetime import datetime
 from pymeasure.experiment import Parameter
-from analogreadout.configurations import config
 from analogreadout.instruments.sources import NotASource
 from analogreadout.instruments.sensors import NotASensor
 from analogreadout.instruments.attenuators import NotAnAttenuator
@@ -16,7 +17,7 @@ from analogreadout.instruments.resistance_bridges import NotAThermometer
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
-DEFAULT_CONFIG = "JPL"
+DEFAULT_CONFIG = "ucsb"
 
 
 def get_procedure(procedure):
@@ -52,12 +53,13 @@ class DAQ:
     dictionary. Also holds methods to initialize, close and reset all instruments at once.
     Data taking methods are selected from the run() method.
     """
-    def __init__(self, configuration=None):
+    def __init__(self, configuration=DEFAULT_CONFIG):
         # load configuration
-        if configuration is None:
-            self.config = config(DEFAULT_CONFIG)
-        else:
-            self.config = config(configuration)
+        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "configurations", configuration.lower() + ".yaml")
+        with open(file_name) as f:
+            self.config = yaml.load(f, Loader=yaml.FullLoader)
+
         # initialize all instruments as None
         self.instrument_names = ('dac_atten',  # digital to analog converter
                                  'adc_atten',  # analog to digital converter

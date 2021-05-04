@@ -1,0 +1,25 @@
+adc:
+  adc:
+    arguments: []
+    instrument: Advantech1840
+    location: digitizers
+dac:
+  attenuator:
+    arguments:
+    - GPIB1::18::INSTR
+    - - 1
+      - 2
+    instrument: Weinschel83102042F
+    location: attenuators
+  dac:
+    arguments:
+    - GPIB1::4::INSTR
+    instrument: AnritsuMG3692B
+    location: signal_generators
+    power: 16
+procedures:
+  noise: Noise1
+  pulse: Pulse1
+  sweep: Sweep1
+sensors: {}
+sources: {}
