@@ -7,21 +7,16 @@ dac:
   attenuator:
     arguments:
     - GPIB0::10::INSTR
-    - - 1
-      - 2
+    - [1, 2]
     instrument: Weinschel83102042F
     location: attenuators
   dac:
     arguments:
-    - - AnritsuMG37022A
-      - AnritsuMG37022A
-    - - - USB0::0x0B5B::0xFFE0::084510::INSTR
-      - - USB0::0x0B5B::0xFFE0::084511::INSTR
+    - [AnritsuMG37022A, AnritsuMG37022A]
+    - [[USB0::0x0B5B::0xFFE0::084510::INSTR], [USB0::0x0B5B::0xFFE0::084511::INSTR]]
     instrument: MultipleSignalGenerators
     location: signal_generators
-    power:
-    - 14
-    - 14
+    power: [14, 14]
 procedures:
   noise: Noise2
   pulse: Pulse2
@@ -30,7 +25,7 @@ sensors:
   thermometer:
     arguments:
     - visa://blackfridge.physics.ucsb.edu/ASRL1::INSTR
-    - 7
+    - u03943
     - '3716'
     instrument: LakeShore370AC
     location: resistance_bridges
