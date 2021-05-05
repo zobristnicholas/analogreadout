@@ -22,3 +22,37 @@ procedures:
   sweep: Sweep1
 sensors: {}
 sources: {}
+gui:
+  bias: [[0, "frequency"]]
+  sweep:
+    name: ucsb1
+    procedure_class: !!python/name:analogreadout.procedures.Sweep1
+    base_procedure_class: !!python/name:mkidplotter.SweepGUIProcedure1
+    x_axes: [['i', 'i_bias'], ['f'], ['f_psd', 'f_psd']]
+    x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]"]
+    y_axes: [['q', 'q_bias'], ['t'], ["i_psd", "q_psd"]]
+    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V² / Hz]"]
+    legend_text: [['loop', 'bias point'], None, ['I', 'Q']]
+    plot_widget_classes:
+    - !!python/name:mkidplotter.SweepPlotWidget
+    - !!python/name:mkidplotter.TransmissionPlotWidget
+    - !!python/name:mkidplotter.NoisePlotWidget
+    plot_names: ['IQ', '|S21|', 'Noise']
+    log_level: INFO
+  pulse:
+    name: ucsb1
+    procedure_class: !!python/name:analogreadout.procedures.Pulse2
+    x_axes: [['i_loop', 'i'], ['f_psd', 'f_psd'], ['hist_x']]
+    x_labels: ["I [V]", "frequency [Hz]", "pulse amplitudes |I + iQ|"]
+    y_axes: [['q_loop', 'q'], ['i_psd', 'q_psd'], ['hist_y']]
+    y_labels: ["Q [V]", "PSD [V² / Hz]", "probability density"]
+    legend_text: [['loop', 'data'], ['I', 'Q'], None]
+    plot_widget_classes:
+      - !!python/name:mkidplotter.PulsePlotWidget
+      - !!python/name:mkidplotter.NoisePlotWidget
+      - !!python/name:mkidplotter.HistogramPlotWidget
+    plot_names:
+      - Data
+      - Noise
+      - Histogram
+    log_level: INFO
