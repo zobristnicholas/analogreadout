@@ -32,7 +32,10 @@ gui:
     x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]"]
     y_axes: [['q', 'q_bias'], ['t'], ["i_psd", "q_psd"]]
     y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V² / Hz]"]
-    legend_text: [['loop', 'bias point'], None, ['I', 'Q']]
+    legend_text:
+    - ['loop', 'bias point']
+    - !!python/name:None
+    - ['I', 'Q']
     plot_widget_classes:
     - !!python/name:mkidplotter.SweepPlotWidget
     - !!python/name:mkidplotter.TransmissionPlotWidget
@@ -46,7 +49,10 @@ gui:
     x_labels: ["I [V]", "frequency [Hz]", "pulse amplitudes |I + iQ|"]
     y_axes: [['q_loop', 'q'], ['i_psd', 'q_psd'], ['hist_y']]
     y_labels: ["Q [V]", "PSD [V² / Hz]", "probability density"]
-    legend_text: [['loop', 'data'], ['I', 'Q'], None]
+    legend_text:
+    - ['loop', 'data']
+    - ['I', 'Q']
+    - !!python/name:None
     plot_widget_classes:
       - !!python/name:mkidplotter.PulsePlotWidget
       - !!python/name:mkidplotter.NoisePlotWidget

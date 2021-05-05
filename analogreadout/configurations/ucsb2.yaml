@@ -1,6 +1,7 @@
 adc:
   adc:
-    arguments: []
+    arguments:
+    - ["ai1", "ai0", "ai3", "ai2"]
     instrument: NI6120
     location: digitizers
 dac:
@@ -45,8 +46,14 @@ gui:
     x_axes: [['i1', 'i1_bias'], ['f1',], ['f1_psd', 'f1_psd'], ['i2', 'i2_bias'], ['f2'], ['f2_psd', 'f2_psd']]
     x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]", "I [V]", "frequency [GHz]", "frequency [Hz]"]
     y_axes: [['q1', 'q1_bias'], ['t1'], ["i1_psd", "q1_psd"], ['q2', 'q2_bias'], ['t2'], ["i2_psd", "q2_psd"]]
-    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V² / Hz]", "Q [V]", "|S21| [dBm]", "PSD [V² / Hz]"]
-    legend_text: [['loop', 'bias point'], None, ['I', 'Q'], ['loop', 'bias point'], None, ['I', 'Q']]
+    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V^2 / Hz]", "Q [V]", "|S21| [dBm]", "PSD [V^2 / Hz]"]
+    legend_text:
+    - ['loop', 'bias point']
+    - !!python/name:None
+    - ['I', 'Q']
+    - ['loop', 'bias point']
+    - !!python/name:None
+    - ['I', 'Q']
     plot_widget_classes:
     - !!python/name:mkidplotter.SweepPlotWidget
     - !!python/name:mkidplotter.TransmissionPlotWidget
@@ -69,7 +76,12 @@ gui:
     y_axes: [['q1_loop', 'q1'], ['i1_psd', 'q1_psd'], ['q2_loop', 'q2'], ['i2_psd', 'q2_psd'], ['peaks2']]
     x_labels: ["I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]", "channel 1 pulse amplitudes |I + iQ|"]
     y_labels: ["Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]", "channel 2 pulse amplitudes |I + iQ|"]
-    legend_text: [['loop', 'data'], ['I', 'Q'], ['loop', 'data'], ['I', 'Q'], None]
+    legend_text:
+    - ['loop', 'data']
+    - ['I', 'Q']
+    - ['loop', 'data']
+    - ['I', 'Q']
+    - !!python/name:None
     plot_widget_classes:
     - !!python/name:mkidplotter.PulsePlotWidget
     - !!python/name:mkidplotter.NoisePlotWidget
