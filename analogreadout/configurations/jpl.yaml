@@ -7,8 +7,7 @@ dac:
   attenuator:
     arguments:
     - GPIB1::18::INSTR
-    - - 1
-      - 2
+    - [1, 2]
     instrument: Weinschel83102042F
     location: attenuators
   dac:
