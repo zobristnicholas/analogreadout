@@ -4,7 +4,7 @@ ranges:
   start: 0
   stop: 0.11336
   bias:
-    index: 3
+    index: 2
     mode: voltage
     resistance: 14
     autorange: False

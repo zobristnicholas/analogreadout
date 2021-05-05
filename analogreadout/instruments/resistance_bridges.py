@@ -133,7 +133,7 @@ class LakeShore370AC(LS370):
         # Get the bias settings from the config file based on the set point
         for temperature_range in self.config['ranges']:
             if self._set_point is None:
-                break
+                continue  # go to else
             if temperature_range['start'] <= self._set_point < temperature_range['stop']:
                 settings = temperature_range['bias']
                 break
@@ -149,11 +149,11 @@ class LakeShore370AC(LS370):
             settings['resistance'] = resistance_range[2]
         if settings.get('mode', None) is None:
             settings['mode'] = 'voltage'
-        if settings.get('auto_range', None) is None:
-            settings['auto_range'] = True
+        if settings.get('autorange', None) is None:
+            settings['autorange'] = True
 
         # Send the command to the device.
-        command = (settings['mode'], settings['index'], settings['resistance'], settings['auto_range'], False)
+        command = (settings['mode'], settings['index'], settings['resistance'], settings['autorange'], False)
         self.input[self.channel - 1].resistance_range = command
         sleep(self.WAIT_MEASURE)
         
