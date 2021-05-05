@@ -25,7 +25,7 @@ sources: {}
 gui:
   bias: [[0, "frequency"]]
   sweep:
-    name: ucsb1
+    name: jpl
     procedure_class: !!python/name:analogreadout.procedures.Sweep1
     base_procedure_class: !!python/name:mkidplotter.SweepGUIProcedure1
     x_axes: [['i', 'i_bias'], ['f'], ['f_psd', 'f_psd']]
