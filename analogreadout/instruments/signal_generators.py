@@ -78,7 +78,7 @@ class AnritsuABC:
             frequency = frequency[0]
         if np.isnan(frequency):
             self.turn_off_output()
-            log.debug("{} {}, s/n: {}, version: {} recieved a NaN frequency and turned off it's output"
+            log.debug("{} {}, s/n: {}, version: {} received a NaN frequency and turned off it's output"
                       .format(*self.identity))
         else:
             self.write("F1 {} GH;".format(frequency))
@@ -128,6 +128,7 @@ class AnritsuMG37022A(AnritsuABC):
     FREQUENCY_SWITCH = 0.001
     POWER_SWITCH = 0.04
     OUTPUT_SWITCH = 0.05
+
     def turn_on_output(self):
         self.write("OUTPut: ON")
         sleep(self.OUTPUT_SWITCH)
@@ -141,6 +142,7 @@ class AnritsuMG3692B(AnritsuABC):
     FREQUENCY_SWITCH = 0.06
     POWER_SWITCH = 0.04
     OUTPUT_SWITCH = 0.05
+
     def set_increment(self, frequency):
         if isinstance(frequency, (list, tuple, np.ndarray)):
             if len(frequency) != 1:
@@ -159,4 +161,3 @@ class AnritsuMG3692B(AnritsuABC):
     def turn_off_output(self):
         self.write("RF0")
         sleep(self.OUTPUT_SWITCH)
-

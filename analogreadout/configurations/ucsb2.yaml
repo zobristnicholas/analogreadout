@@ -1,0 +1,86 @@
+adc:
+  adc:
+    arguments: []
+    instrument: NI6120
+    location: digitizers
+dac:
+  attenuator:
+    arguments:
+    - GPIB0::10::INSTR
+    - [1, 2]
+    instrument: Weinschel83102042F
+    location: attenuators
+  dac:
+    arguments:
+    - [AnritsuMG37022A, AnritsuMG37022A]
+    - [[USB0::0x0B5B::0xFFE0::084510::INSTR], [USB0::0x0B5B::0xFFE0::084511::INSTR]]
+    instrument: MultipleSignalGenerators
+    location: signal_generators
+    power: [14, 14]
+procedures:
+  noise: Noise2
+  pulse: Pulse2
+  sweep: Sweep2
+sensors:
+  thermometer:
+    arguments:
+    - visa://blackfridge.physics.ucsb.edu/ASRL1::INSTR
+    - u03943
+    - '3716'
+    instrument: LakeShore370AC
+    location: resistance_bridges
+sources:
+  laser:
+    arguments:
+    - 10.200.130.7
+    - 8888
+    instrument: LaserBox
+    location: sources
+gui:
+  bias: [[0, "frequency1"], [3, "frequency2"]]
+  sweep:
+    name: ucsb2
+    procedure_class: !!python/name:analogreadout.procedures.Sweep2
+    base_procedure_class: !!python/name:mkidplotter.SweepGUIProcedure2
+    x_axes: [['i1', 'i1_bias'], ['f1',], ['f1_psd', 'f1_psd'], ['i2', 'i2_bias'], ['f2'], ['f2_psd', 'f2_psd']]
+    x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]", "I [V]", "frequency [GHz]", "frequency [Hz]"]
+    y_axes: [['q1', 'q1_bias'], ['t1'], ["i1_psd", "q1_psd"], ['q2', 'q2_bias'], ['t2'], ["i2_psd", "q2_psd"]]
+    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V² / Hz]", "Q [V]", "|S21| [dBm]", "PSD [V² / Hz]"]
+    legend_text: [['loop', 'bias point'], None, ['I', 'Q'], ['loop', 'bias point'], None, ['I', 'Q']]
+    plot_widget_classes:
+    - !!python/name:mkidplotter.SweepPlotWidget
+    - !!python/name:mkidplotter.TransmissionPlotWidget
+    - !!python/name:mkidplotter.NoisePlotWidget
+    - !!python/name:mkidplotter.SweepPlotWidget
+    - !!python/name:mkidplotter.TransmissionPlotWidget
+    - !!python/name:mkidplotter.NoisePlotWidget
+    plot_names:
+    - 'Channel 1: IQ'
+    - 'Channel 1: |S21|'
+    - 'Channel 1: Noise'
+    - 'Channel 2: IQ'
+    - 'Channel 2: |S21|'
+    - 'Channel 2: Noise'
+    log_level: INFO
+  pulse:
+    name: ucsb2
+    procedure_class: !!python/name:analogreadout.procedures.Pulse2
+    x_axes: [['i1_loop', 'i1'], ['f1_psd', 'f1_psd'], ['i2_loop', 'i2'], ['f2_psd', 'f2_psd'], ['peaks1']]
+    y_axes: [['q1_loop', 'q1'], ['i1_psd', 'q1_psd'], ['q2_loop', 'q2'], ['i2_psd', 'q2_psd'], ['peaks2']]
+    x_labels: ["I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]", "channel 1 pulse amplitudes |I + iQ|"]
+    y_labels: ["Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]", "channel 2 pulse amplitudes |I + iQ|"]
+    legend_text: [['loop', 'data'], ['I', 'Q'], ['loop', 'data'], ['I', 'Q'], None]
+    plot_widget_classes:
+    - !!python/name:mkidplotter.PulsePlotWidget
+    - !!python/name:mkidplotter.NoisePlotWidget
+    - !!python/name:mkidplotter.PulsePlotWidget
+    - !!python/name:mkidplotter.NoisePlotWidget
+    - !!python/name:mkidplotter.ScatterPlotWidget
+    plot_names:
+    - 'Channel 1: Data'
+    - 'Channel 1: Noise'
+    - 'Channel 2: Data'
+    - 'Channel 2: Noise'
+    - 'Amplitude Scatter'
+    log_level: INFO
+    
