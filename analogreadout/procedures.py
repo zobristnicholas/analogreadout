@@ -270,9 +270,9 @@ class Sweep1(Sweep):
                        "q": npz_file["z"][0, :].imag - z_offset_interp[0, :].imag,
                        "t": t}
         if psd is not None and freqs is not None:
-            result_dict.update({"i_psd": psd[0, 0, :]['I'],
-                                "q_psd": psd[0, 0, :]['Q'],
-                                "f_psd": freqs[0, :]})
+            result_dict.update({"i_psd": psd[0, 0, 1:]['I'],
+                                "q_psd": psd[0, 0, 1:]['Q'],
+                                "f_psd": freqs[0, 1:]})
         if npz_file["noise_bias"].any():
             result_dict.update({"f_bias": npz_file["noise_bias"][0],
                                 "t_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
@@ -397,12 +397,12 @@ class Sweep2(Sweep):
                        "q2": npz_file["z"][1, :].imag - z_offset_interp[1, :].imag,
                        "t2": t2}
         if psd is not None and freqs is not None:
-            result_dict.update({"i1_psd": psd[0, 0, :]['I'],
-                                "q1_psd": psd[0, 0, :]['Q'],
-                                "f1_psd": freqs[0, :],
-                                "i2_psd": psd[1, 0, :]['I'],
-                                "q2_psd": psd[1, 0, :]['Q'],
-                                "f2_psd": freqs[1, :]})
+            result_dict.update({"i1_psd": psd[0, 0, 1:]['I'],
+                                "q1_psd": psd[0, 0, 1:]['Q'],
+                                "f1_psd": freqs[0, 1:],
+                                "i2_psd": psd[1, 0, 1:]['I'],
+                                "q2_psd": psd[1, 0, 1:]['Q'],
+                                "f2_psd": freqs[1, 1:]})
         if npz_file["noise_bias"].any():
             result_dict.update({"f1_bias": npz_file["noise_bias"][0],
                                 "t1_bias": 20 * np.log10(np.abs(npz_file["noise_bias"][1] +
@@ -848,9 +848,9 @@ class Pulse1(Pulse):
                        'hist_x': bins,
                        'hist_y': counts}
         if psd is not None and freqs is not None:
-            result_dict.update({"i_psd": psd[0, 0, :]['I'],
-                                "q_psd": psd[0, 0, :]['Q'],
-                                "f_psd": freqs[0, :]})
+            result_dict.update({"i_psd": psd[0, 0, 1:]['I'],
+                                "q_psd": psd[0, 0, 1:]['Q'],
+                                "f_psd": freqs[0, 1:]})
         return result_dict
 
 
@@ -951,10 +951,10 @@ class Pulse2(Pulse):
                        'peaks1': amplitudes[0],
                        'peaks2': amplitudes[1]}
         if psd is not None and freqs is not None:
-            result_dict.update({"i1_psd": psd[0, 0, :]['I'],
-                                "q1_psd": psd[0, 0, :]['Q'],
-                                "f1_psd": freqs[0, :],
-                                "i2_psd": psd[1, 0, :]['I'],
-                                "q2_psd": psd[1, 0, :]['Q'],
-                                "f2_psd": freqs[1, :]})
+            result_dict.update({"i1_psd": psd[0, 0, 1:]['I'],
+                                "q1_psd": psd[0, 0, 1:]['Q'],
+                                "f1_psd": freqs[0, 1:],
+                                "i2_psd": psd[1, 0, 1:]['I'],
+                                "q2_psd": psd[1, 0, 1:]['Q'],
+                                "f2_psd": freqs[1, 1:]})
         return result_dict
