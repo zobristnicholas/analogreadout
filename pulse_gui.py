@@ -85,7 +85,7 @@ def pulse_window(configuration="ucsb2"):
     if daq is not None:
         config['gui']['pulse']['procedure_class'].connect_daq(daq)
     else:
-        daq = DAQ(config)
+        daq = DAQ(configuration)
         config['gui']['pulse']['procedure_class'].connect_daq(daq)
     return w
 
