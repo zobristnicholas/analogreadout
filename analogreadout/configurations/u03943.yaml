@@ -1,16 +1,8 @@
-channel: 7
+channel: 6
 ranges:
 -
   start: 0
-  stop: 0.11336
-  bias:
-    index: 2
-    mode: voltage
-    resistance: 14
-    autorange: False
--
-  start: 0.11336
-  stop: 400
+  stop: 4000
   bias:
     index: 3
     mode: voltage
