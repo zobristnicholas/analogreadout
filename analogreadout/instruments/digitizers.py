@@ -39,12 +39,14 @@ class DigitizerABC:
             data[:, index, :]['Q'] = sample[1::2, :]
         return data
         
-    def take_pulse_data(self, trigger_level, n_sigma=4, dead_time=None):
+    def take_pulse_data(self, trigger_level, n_sigma=4, dead_time=None, max_triggers=1000):
+        # change max_triggers into data point units
+        max_triggers = int(max_triggers * self.samples_per_channel / self.sample_rate)
         # initialize data array
         n_channels = len(self.channels) // 2
         n_samples = int(self.samples_per_partition)
         if dead_time is None:  # dead time to sample units
-            dead_time = n_samples // 10
+            dead_time = n_samples // 2
         else:
             dead_time = int(dead_time * self.sample_rate)
         # collect data
@@ -56,14 +58,14 @@ class DigitizerABC:
         # time ordered pulse indices
         logic = np.abs(sample - np.median(sample, axis=-1, keepdims=True)) > n_sigma * sigma
         triggered = np.nonzero(logic.any(axis=0))[0]
-        # enforce one trigger per n_samples
+        # enforce one trigger per dead_time
         for trigger in triggered:
-            previous_triggers = logic[:, trigger - dead_time:trigger].any()
+            previous_triggers = logic[:, max(trigger - dead_time, 0):trigger].any()
             beginning_trigger = trigger < n_samples // 2
             ending_trigger = trigger > self.samples_per_channel - n_samples // 2
             if previous_triggers or beginning_trigger or ending_trigger:
                 logic[:, trigger] = False
-        triggered = np.nonzero(logic.any(axis=0))[0]
+        triggered = np.nonzero(logic.any(axis=0))[0][:max_triggers]
         n_triggers = int(triggered.size)
         # recollect the data in fixed size windows around each trigger
         triggered_offset = triggered - n_samples // 2

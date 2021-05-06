@@ -636,7 +636,7 @@ class Pulse(MKIDProcedure):
     
     sigma = FloatParameter("N Sigma Trigger", default=4)
     integration_time = FloatParameter("Time Per Integration", units="s", default=1)
-    dead_time = FloatParameter("Dead Time", units="s", default=100e-6)
+    dead_time = FloatParameter("Dead Time", units="s", default=1000e-6)
     total_atten = IntegerParameter("Total Attenuation", units="dB", default=0)
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_trace = IntegerParameter("Data Points per Pulses", default=2000)
@@ -676,7 +676,7 @@ class Pulse(MKIDProcedure):
         # initialize the system in the right mode
         self.status_bar.value = "Computing noise level"
         self.daq.dac_atten.initialize(self.attenuation)
-        self.daq.adc.initialize(self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
+        self.daq.adc.initialize(sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
 
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
@@ -723,6 +723,9 @@ class Pulse(MKIDProcedure):
         self.metadata.update(self.daq.system_state())
 
     def shutdown(self):
+        # zero out count rate indicators
+        for index, count_rate in enumerate(self.count_rates):
+            count_rate.value = 0
         self.daq.laser.set_state(self.daq.laser.OFF_STATE)  # turn laser off
         if self.pulses is not None:
             self.save()  # save data even if the procedure was aborted
