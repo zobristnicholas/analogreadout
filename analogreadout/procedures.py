@@ -663,20 +663,21 @@ class Pulse(MKIDProcedure):
         n_samples = int(self.integration_time * self.sample_rate * 1e6)
         self.status_bar.value = "Calibrating IQ mixer offset"
 
-        # take zero point
+        # take zero point (laser gets turned off here if noise wasn't run)
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
             warnings.simplefilter("ignore", UserWarning)
-            self.daq.initialize(self.freqs, dac_atten=np.inf, adc_atten=np.inf,
+            self.daq.initialize(self.freqs, dac_atten=np.inf, adc_atten=adc_atten,
                                 sample_rate=self.sample_rate * 1e6, n_samples=n_samples)
         zero = self.daq.adc.take_iq_point()
         self.offset['I'] = zero.real
         self.offset['Q'] = zero.imag
 
-        # initialize the system in the right mode (laser off)
+        # initialize the system in the right mode
         self.status_bar.value = "Computing noise level"
-        self.daq.initialize(self.freqs, dac_atten=self.attenuation, adc_atten=adc_atten,
-                            sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
+        self.dac_atten.initialize(dac_atten)
+        self.adc.initialize(self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
+
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
         sigma['I'] = median_abs_deviation(data['I'].astype(np.float64), scale='normal', axis=-1).ravel()
