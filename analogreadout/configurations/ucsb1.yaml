@@ -58,11 +58,11 @@ gui:
     log_level: INFO
   pulse:
     name: ucsb1
-    procedure_class: !!python/name:analogreadout.procedures.Pulse2
+    procedure_class: !!python/name:analogreadout.procedures.Pulse1
     x_axes: [['i_loop', 'i'], ['f_psd', 'f_psd'], ['hist_x']]
     x_labels: ["I [V]", "frequency [Hz]", "pulse amplitudes |I + iQ|"]
     y_axes: [['q_loop', 'q'], ['i_psd', 'q_psd'], ['hist_y']]
-    y_labels: ["Q [V]", "PSD [V² / Hz]", "probability density"]
+    y_labels: ["Q [V]", "PSD [V^2 / Hz]", "probability density"]
     legend_text:
     - ['loop', 'data']
     - ['I', 'Q']

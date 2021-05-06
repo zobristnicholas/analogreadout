@@ -75,7 +75,7 @@ gui:
     x_axes: [['i1_loop', 'i1'], ['f1_psd', 'f1_psd'], ['i2_loop', 'i2'], ['f2_psd', 'f2_psd'], ['peaks1']]
     y_axes: [['q1_loop', 'q1'], ['i1_psd', 'q1_psd'], ['q2_loop', 'q2'], ['i2_psd', 'q2_psd'], ['peaks2']]
     x_labels: ["I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]", "channel 1 pulse amplitudes |I + iQ|"]
-    y_labels: ["Q [V]", "PSD [V² / Hz]", "Q [V]", "PSD [V² / Hz]", "channel 2 pulse amplitudes |I + iQ|"]
+    y_labels: ["Q [V]", "PSD [V^2 / Hz]", "Q [V]", "PSD [V^2 / Hz]", "channel 2 pulse amplitudes |I + iQ|"]
     legend_text:
     - ['loop', 'data']
     - ['I', 'Q']
