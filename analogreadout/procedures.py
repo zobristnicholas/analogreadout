@@ -676,7 +676,7 @@ class Pulse(MKIDProcedure):
         # initialize the system in the right mode
         self.status_bar.value = "Computing noise level"
         self.daq.dac_atten.initialize(self.attenuation)
-        self.adc.initialize(self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
+        self.daq.adc.initialize(self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
 
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
