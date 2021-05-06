@@ -100,6 +100,10 @@ class DAQ:
             self.primary_amplifier = NotASensor("Primary Amplifier")
         if self.laser is None:
             self.laser = NotASource("Laser Box")
+
+        # Thermometer should be initialized immediately since it runs in the background
+        self.thermometer.initialize()
+
         # set a flag that tracks if the all the instruments have been closed
         self.closed = False
         
