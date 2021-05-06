@@ -45,7 +45,7 @@ gui:
     x_axes: [['i', 'i_bias'], ['f'], ['f_psd', 'f_psd']]
     x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]"]
     y_axes: [['q', 'q_bias'], ['t'], ["i_psd", "q_psd"]]
-    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [log10(V^2 / Hz)]"]
+    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [dBc / Hz]"]
     legend_text:
     - ['loop', 'bias point']
     - !!python/name:None
@@ -62,7 +62,7 @@ gui:
     x_axes: [['i_loop', 'i'], ['f_psd', 'f_psd'], ['hist_x']]
     x_labels: ["I [V]", "frequency [Hz]", "pulse amplitudes |I + iQ|"]
     y_axes: [['q_loop', 'q'], ['i_psd', 'q_psd'], ['hist_y']]
-    y_labels: ["Q [V]", "PSD [log10(V^2 / Hz)]", "probability density"]
+    y_labels: ["Q [V]", "PSD [dBc / Hz]", "probability density"]
     legend_text:
     - ['loop', 'data']
     - ['I', 'Q']
