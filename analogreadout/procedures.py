@@ -694,10 +694,13 @@ class Pulse(MKIDProcedure):
 
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
+            
             if isinstance(self.pulses, np.memmap):  # reload the mem-map so that we don't keep all the pulses in RAM
                 self.pulses = np.lib.format.open_memmap(self.pulses.filename, mode="r+")
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
+            if isinstance(self.pulses, np.memmap):  # ensure that the data is flushed to disk
+                self.pulses.flush()
 
             responses_i = data[:, :space_left, :]['I'] - np.median(data[:, :space_left, :]['I'], axis=2, keepdims=True)
             responses_q = data[:, :space_left, :]['Q'] - np.median(data[:, :space_left, :]['Q'], axis=2, keepdims=True)
