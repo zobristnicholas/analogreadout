@@ -538,8 +538,8 @@ class Noise(MKIDProcedure):
                  
     def compute_psd(self):
         self.status_bar.value = "Computing PSDs"
-        # n_points such that 100 Hz is the minimum possible freq
-        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
+        # n_points such that 1 kHz is the minimum possible freq
+        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 1000))
         kwargs = {'nperseg': n_points, 'fs': self.sample_rate * 1e6, 'return_onesided': True,
                   'detrend': 'constant', 'scaling': 'density', 'axis': -1, 'window': 'hanning'}
         _, i_psd = sig.welch(self.noise['I'], **kwargs)
@@ -547,9 +547,6 @@ class Noise(MKIDProcedure):
         # average multiple PSDs together
         i_psd = np.mean(i_psd, axis=-2)
         q_psd = np.mean(q_psd, axis=-2)
-        # fix zero point
-        i_psd[:, :, 0] = i_psd[:, :, 1]
-        q_psd[:, :, 0] = q_psd[:, :, 1]
         # save in array
         self.psd['I'] = i_psd
         self.psd['Q'] = q_psd
@@ -576,7 +573,7 @@ class Noise1(Noise):
         self.freqs = self.frequency + offset.reshape((1, offset.size))
         self.noise = np.zeros((1, n_noise, self.n_integrations, n_points), dtype=[('I', np.float16), ('Q', np.float16)])
 
-        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
+        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 1000))
         fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
         self.psd = np.zeros((1, n_noise, n_fft), dtype=[('I', np.float32), ('Q', np.float32)])
@@ -584,9 +581,9 @@ class Noise1(Noise):
         self.update_metadata()
 
     def get_noise_data(self):
-        data = {"f_psd": self.f_psd[0, :],
-                "i_psd": self.psd[0, 0, :]['I'],
-                "q_psd": self.psd[0, 0, :]['Q']}
+        data = {"f_psd": self.f_psd[0, 1:],
+                "i_psd": self.psd[0, 0, 1:]['I'],
+                "q_psd": self.psd[0, 0, 1:]['Q']}
         return data
 
 
@@ -609,7 +606,7 @@ class Noise2(Noise):
         self.freqs = np.array([self.frequency1 + offset, self.frequency2 + offset])
         self.noise = np.zeros((2, n_noise, self.n_integrations, n_points), dtype=[('I', np.float16), ('Q', np.float16)])
 
-        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 100))
+        n_points = min(self.noise.shape[-1], int(self.sample_rate * 1e6 / 1000))
         fft_freq = np.fft.rfftfreq(n_points, d=1 / (self.sample_rate * 1e6))
         n_fft = fft_freq.size
         self.psd = np.zeros((2, n_noise, n_fft), dtype=[('I', np.float32), ('Q', np.float32)])
@@ -617,12 +614,12 @@ class Noise2(Noise):
         self.update_metadata()
 
     def get_noise_data(self):
-        data = {"f1_psd": self.f_psd[0, :],
-                "i1_psd": self.psd[0, 0, :]['I'],
-                "q1_psd": self.psd[0, 0, :]['Q'],
-                "f2_psd": self.f_psd[1, :],
-                "i2_psd": self.psd[1, 0, :]['I'],
-                "q2_psd": self.psd[1, 0, :]['Q']}
+        data = {"f1_psd": self.f_psd[0, 1:],
+                "i1_psd": self.psd[0, 0, 1:]['I'],
+                "q1_psd": self.psd[0, 0, 1:]['Q'],
+                "f2_psd": self.f_psd[1, 1:],
+                "i2_psd": self.psd[1, 0, 1:]['I'],
+                "q2_psd": self.psd[1, 0, 1:]['Q']}
         return data
 
 
