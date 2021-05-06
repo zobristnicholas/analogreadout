@@ -46,7 +46,7 @@ gui:
     x_axes: [['i1', 'i1_bias'], ['f1',], ['f1_psd', 'f1_psd'], ['i2', 'i2_bias'], ['f2'], ['f2_psd', 'f2_psd']]
     x_labels: ["I [V]", "frequency [GHz]", "frequency [Hz]", "I [V]", "frequency [GHz]", "frequency [Hz]"]
     y_axes: [['q1', 'q1_bias'], ['t1'], ["i1_psd", "q1_psd"], ['q2', 'q2_bias'], ['t2'], ["i2_psd", "q2_psd"]]
-    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [V^2 / Hz]", "Q [V]", "|S21| [dBm]", "PSD [V^2 / Hz]"]
+    y_labels: ["Q [V]", "|S21| [dBm]", "PSD [log10(V^2 / Hz)]", "Q [V]", "|S21| [dBm]", "PSD [V^2 / Hz]"]
     legend_text:
     - ['loop', 'bias point']
     - !!python/name:None
@@ -75,7 +75,12 @@ gui:
     x_axes: [['i1_loop', 'i1'], ['f1_psd', 'f1_psd'], ['i2_loop', 'i2'], ['f2_psd', 'f2_psd'], ['peaks1']]
     y_axes: [['q1_loop', 'q1'], ['i1_psd', 'q1_psd'], ['q2_loop', 'q2'], ['i2_psd', 'q2_psd'], ['peaks2']]
     x_labels: ["I [V]", "frequency [Hz]", "I [V]", "frequency [Hz]", "channel 1 pulse amplitudes |I + iQ|"]
-    y_labels: ["Q [V]", "PSD [V^2 / Hz]", "Q [V]", "PSD [V^2 / Hz]", "channel 2 pulse amplitudes |I + iQ|"]
+    y_labels:
+    - "Q [V]"
+    - "PSD [log10(V^2 / Hz)]"
+    - "Q [V]"
+    - "PSD [log10(V^2 / Hz)]"
+    - "channel 2 pulse amplitudes |I + iQ|"
     legend_text:
     - ['loop', 'data']
     - ['I', 'Q']
