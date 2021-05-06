@@ -54,7 +54,7 @@ class Weinschel83102042F:
                 new_attenuation = min(self.MAX_ATTEN, attenuation - current_attenuation)
                 self._write_attenuation(new_attenuation)
                 current_attenuation += new_attenuation
-        sleep(0.1)
+        sleep(0.5)
     
     def _write_attenuation(self, attenuation):
         self.write("ATTN {:d}".format(int(attenuation)))

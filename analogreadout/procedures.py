@@ -81,8 +81,6 @@ class Sweep(SweepBaseProcedure):
         self.status_bar.value = "Calibrating IQ mixer offset"
         for index, _ in enumerate(self.f_offset[0, :]):
             self.daq.dac.set_frequency(self.f_offset[:, index])
-            if index == 0:
-                self.daq.adc.take_iq_point()  # first data point is sometimes garbage
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
             self.emit('progress', index / (self.f_offset.shape[1] + self.freqs.shape[1]) * 100)
             log.debug("taking zero index: %d", index)
