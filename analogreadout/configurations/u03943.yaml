@@ -6,5 +6,5 @@ ranges:
   bias:
     index: 3
     mode: voltage
-    resistance: 14
+    resistance: 15
     autorange: False
