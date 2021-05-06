@@ -694,7 +694,7 @@ class Pulse(MKIDProcedure):
 
             new_pulses = data.shape[1]
             space_left = self.n_pulses - n_pulses
-            
+
             if isinstance(self.pulses, np.memmap):  # reload the mem-map so that we don't keep all the pulses in RAM
                 self.pulses = np.lib.format.open_memmap(self.pulses.filename, mode="r+")
             self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
