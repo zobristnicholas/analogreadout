@@ -808,7 +808,7 @@ class Pulse1(Pulse):
         return data
 
     def emit_amplitude_data(self, amplitudes, new_pulses):
-        bins, counts = np.histogram(amplitudes[amplitudes != 0], bins='auto')
+        counts, bins = np.histogram(amplitudes[amplitudes != 0], bins='auto')
         data = {'hist_x': bins, 'hist_y': counts}
         self.emit("results", data, clear=True)
         
