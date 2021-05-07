@@ -23,6 +23,7 @@ LOCK = threading.Lock()
 
 class LakeShore370AC(LS370):
     WAIT_MEASURE = 0.15
+    WAIT_MEASURE_LONG = 1
 
     def __init__(self, address, thermometer, scanner=None):
         file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
@@ -52,8 +53,8 @@ class LakeShore370AC(LS370):
     def temperature(self):
         with LOCK:
             try:
-                temp = self.input[self.channel - 1].kelvin
                 sleep(self.WAIT_MEASURE)
+                temp = self.input[self.channel - 1].kelvin
                 temperature_log.info(f"{temp * 1000:g} mK")
             except pyvisa.VisaIOError:
                 log.error("The {:s} {:s}, s/n: {:s}, version: {:s} ".format(*self.identity)
@@ -65,8 +66,8 @@ class LakeShore370AC(LS370):
     def resistance(self):
         with LOCK:
             try:
-                res = self.input[self.channel - 1].resistance
                 sleep(self.WAIT_MEASURE)
+                res = self.input[self.channel - 1].resistance
                 resistance_log.info(f"{res:g} Ohm")
             except pyvisa.VisaIOError:
                 log.error("The {:s} {:s}, s/n: {:s}, version: {:s} ".format(*self.identity)
@@ -155,7 +156,7 @@ class LakeShore370AC(LS370):
         # Send the command to the device.
         command = (settings['mode'], settings['index'], settings['resistance'], settings['autorange'], False)
         self.input[self.channel - 1].resistance_range = command
-        sleep(self.WAIT_MEASURE)
+        sleep(self.WAIT_MEASURE_LONG)
         
     def close(self):
         try:
