@@ -116,6 +116,7 @@ class NI6120(DigitizerABC):
         self._disable_aa_filter()
         self._configure_sampling(sample_rate=sample_rate, n_samples=n_samples, n_trace=n_trace)
         self._initialize_data()
+        sleep(0.1)
 
     def reset(self):
         """
