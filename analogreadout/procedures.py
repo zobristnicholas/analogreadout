@@ -1,19 +1,24 @@
 import os
+import yaml
 import logging
 import tempfile
 import warnings
+import lmfit as lm
 import numpy as np
 import scipy.signal as sig
 from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
-                         Indicator, FloatIndicator, FileParameter)
+                         Indicator, FloatIndicator, FileParameter, FitProcedure, FitInput)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
 from analogreadout.utils import load
 
+import mkidcalculator as mc
+
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
+DB0 = 10 * np.log10(1e-3 / 50)
 
 STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
@@ -232,10 +237,9 @@ class Sweep1(Sweep):
         self.update_metadata()
     
     def get_sweep_data(self, index):
-        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - db0
+            t = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - DB0
         t = np.nan if np.isinf(t) else t
         data = {"f": self.freqs[0, index],
                 "i": self.z[0, index].real - self.z_offset_interp[0, index].real,
@@ -259,10 +263,9 @@ class Sweep1(Sweep):
             freqs = None
         z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
-        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - db0
+            t = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - DB0
         t[np.isinf(t)] = np.nan
 
         result_dict = {"f": npz_file["freqs"][0, :],
@@ -347,11 +350,10 @@ class Sweep2(Sweep):
         self.update_metadata()
 
     def get_sweep_data(self, index):
-        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - db0
-            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset_interp[1, index])) - db0
+            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - DB0
+            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset_interp[1, index])) - DB0
         t1 = np.nan if np.isinf(t1) else t1
         t2 = np.nan if np.isinf(t2) else t2    
         data = {"f1": self.freqs[0, index],
@@ -380,11 +382,10 @@ class Sweep2(Sweep):
             freqs = None
         z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
         # fill array
-        db0 = 10 * np.log10(1e-3 / 50)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - db0
-            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset_interp[1, :])) - db0
+            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - DB0
+            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset_interp[1, :])) - DB0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
 
@@ -839,8 +840,7 @@ class Pulse1(Pulse):
         except FileNotFoundError:
             psd = None
             freqs = None
-        result = Sweep1.load(cls.sweep_file)
-
+        result = Sweep1.load(npz_file['metadata'].item()['parameters']['sweep_file'])
         responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
         amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
         bins, counts = np.histogram(amplitudes[amplitudes != 0], bins='auto')
@@ -942,7 +942,7 @@ class Pulse2(Pulse):
             freqs = None
         responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
         amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
-        result = Sweep2.load(cls.sweep_file)
+        result = Sweep2.load(npz_file['metadata'].item()['parameters']['sweep_file'])
         result_dict = {'i1_loop': result.data['i1'],
                        'q1_loop': result.data['q1'],
                        'i1': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
@@ -960,4 +960,203 @@ class Pulse2(Pulse):
                                 "i2_psd": psd[1, 0, 1:]['I'],
                                 "q2_psd": psd[1, 0, 1:]['Q'],
                                 "f2_psd": freqs[1, 1:]})
+        return result_dict
+
+
+class Fit(FitProcedure):
+    FIT_PARAMETERS = ["f0", "qi", "qc", "xa", "a", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2",
+                      "alpha", "beta", "gamma", "delta"]
+    DERIVED_PARAMETERS = ["q0", "tau", "fr", "fm"]
+    def execute(self):
+        if self.should_stop():
+            log.warning(STOP_WARNING.format(self.__class__.__name__))
+            return
+        for channel in self.CHANNELS:
+            # Load in the data.
+            log.info(f"Loading sweep data from channel {channel}.")
+            loop = mc.Loop.from_file(self.sweep_file, channel=channel - 1)
+
+            # Create the guess.
+            log.info(f"Creating the guess for channel {channel}.")
+            guess = mc.models.S21.guess(loop.z, loop.f, imbalance=loop.imbalance_calibration,
+                                        offset=loop.offset_calibration,
+                                        nonlinear_resonance=True if self.a[0] else False,
+                                        quadratic_phase=True if self.phase2[0] else False)
+
+            # Overload the guess with GUI options if specified.
+            for param in self.FIT_PARAMETERS:
+                options = getattr(self, param)
+                if param == "a":  # "a_sqrt" is really being varied not "a"
+                    param = "a_sqrt"
+                    for index, option in enumerate(options[1:]):
+                        if not np.isnan(option) and not np.isinf(option):
+                            options[index + 1] = np.sqrt(option)
+                if options[0]:  # vary
+                    guess[param].set(vary=True)
+                if not np.isnan(options[1]):  # value
+                    guess[param].set(value=float(options[1]))
+                if not np.isnan(options[2]):  # value
+                    guess[param].set(min=float(options[2]))
+                if not np.isnan(options[3]):  # value
+                    guess[param].set(max=float(options[3]))
+
+            # Do the fit.
+            log.info(f"Fitting channel {channel}.")
+            loop.lmfit(mc.models.S21, guess, label='fit_gui')
+            result = loop.lmfit_results['fit_gui']['result'].params
+
+            # Emit the results to GUI.
+            results_dict = {param + f"_{channel}": result[param].value
+                            for param in self.FIT_PARAMETERS}
+            results_dict.update({param + f"_{channel}": result[param].value
+                                 for param in self.DERIVED_PARAMETERS})
+            keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
+            keys = [key.format(channel) for key in keys]
+            f = np.linspace(loop.f.min(), loop.f.max(), 10 * loop.f.size)
+            z_guess = mc.models.S21.model(guess, f) - (guess['gamma'] + 1j * guess['delta'])
+            z_fit = mc.models.S21.model(result, f) - (result['gamma'] + 1j * result['delta'])
+            values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
+                      20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
+            results_dict.update({key: value for key, value in zip(keys, values)})
+            results_dict.update({"filename": self.file_name(), "sweep_file": os.path.basename(self.sweep_file),
+                                 f"channel{channel}": channel})
+            self.emit("results", results_dict)
+
+            log.info(f"Saving channel {channel}.")
+            # Save the results.
+            with open(os.path.join(self.directory, self.file_name()), "r") as f:
+                config = yaml.load(f, Loader=yaml.Loader)
+            config['guess'] = config.get('guess', {})
+            config['result'] = config.get('result', {})
+            config['guess'].update({param + f"_{channel}": guess[param].value for param in self.FIT_PARAMETERS})
+            config['guess'].update({param + f"_{channel}": guess[param].value for param in self.DERIVED_PARAMETERS})
+            config['result'].update({param + f"_{channel}": result[param].value for param in self.FIT_PARAMETERS})
+            config['result'].update({param + f"_{channel}": result[param].value for param in self.DERIVED_PARAMETERS})
+            with open(os.path.join(self.directory, self.file_name()), "w") as f:
+                yaml.dump(config, f)
+
+    @classmethod
+    def load(cls, file_path):
+        """
+        Load the procedure output into a pymeasure Results class instance for the GUI.
+        """
+        # load in the data
+        with open(file_path, "r") as f:
+            config = yaml.load(f, Loader=yaml.Loader)
+        # make a procedure object with the right parameters
+        procedure = cls()
+        for name, value in config['parameters'].items():
+            setattr(procedure, name, value)
+        procedure.refresh_parameters()  # Enforce update of meta data
+        results_dict = cls.make_results_dict(config)
+        results_dict['filename'] = os.path.basename(file_path)
+        # make a temporary file for the gui data
+        results = make_results(results_dict, procedure)
+        return results
+
+
+class Fit1(Fit):
+    CHANNELS = [1]
+    DATA_COLUMNS = ['i1_loop', 'i1_guess', 'i1_fit', 'q1_loop', 'q1_guess', 'q1_fit', 'f1', 'f1_guess', 'f1_fit',
+                    't1', 't1_guess', 't1_fit', 'channel1', "sweep_file", "filename"]
+    DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
+    DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
+
+    def startup(self):
+        if self.should_stop():
+            return
+        result = Sweep1.load(self.sweep_file)
+        self.emit("results", {'i1_loop': result.data['i'],
+                              'q1_loop': result.data['q'],
+                              'f1': result.data['f'],
+                              't1': result.data['t']})
+        self.setup_procedure_log(name=__name__, file_name='procedure.log')
+        log.info("Starting fit procedure")
+
+    @classmethod
+    def make_results_dict(cls, config):
+        result = Sweep1.load(config['parameters']['sweep_file'])
+        result_dict = {'i1_loop': result.data['i'],
+                       'q1_loop': result.data['q'],
+                       'f1': result.data['f'],
+                       't1': result.data['t'],
+                       'channel1': 1,
+                       "sweep_file": os.path.basename(config['parameters']['sweep_file'])}
+        results_dict.update(config['result'])
+        keys = ["i1_guess", "i1_fit", "q1_guess", "q1_fit", "f1_guess", "f1_fit", "t1_guess", "t1_fit"]
+        f = np.array(sweep_result.data["f"])
+        f = np.linspace(f.min(), f.max(), 10 * f.size)
+        # create lmfit parameters objects
+        guess = lm.Parameters()
+        guess.add_many([[key[:-2], value] for key, value in config['guess'].items() if key.endswith(f"_1")])
+        result = lm.Parameters()
+        result.add_many([[key[:-2], value] for key, value in config['result'].items() if key.endswith(f"_1")])
+        # evaluate the model
+        z_guess = mc.models.S21.model(guess, f) - (config['guess']['gamma_1']
+                                                   + 1j * config['guess']['delta_1'])
+        z_fit = mc.models.S21.model(result, f) - (config['result']['gamma_1']
+                                                  + 1j * config['result']['delta_1'])
+        values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
+                  20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
+        result_dict.update({key: value for key, value in zip(keys, values)})
+        return result_dict
+
+
+class Fit2(Fit):
+    CHANNELS = [1, 2]
+    DATA_COLUMNS = ['i1_loop', 'i1_guess', 'i1_fit', 'q1_loop', 'q1_guess', 'q1_fit', 'f1', 'f1_guess', 'f1_fit',
+                    't1', 't1_guess', 't1_fit', 'channel1',
+                    'i2_loop', 'i2_guess', 'i2_fit', 'q2_loop', 'q2_guess', 'q2_fit', 'f2', 'f2_guess', 'f2_fit',
+                    't2', 't2_guess', 't2_fit', 'channel2', "sweep_file", "filename"]
+    DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
+    DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
+
+    def startup(self):
+        if self.should_stop():
+            return
+        result = Sweep2.load(self.sweep_file)
+        self.emit("results", {'i1_loop': result.data['i1'],
+                              'q1_loop': result.data['q1'],
+                              'i2_loop': result.data['i2'],
+                              'q2_loop': result.data['q2'],
+                              'f1': result.data['f1'],
+                              't1': result.data['t1'],
+                              'f2': result.data['f2'],
+                              't2': result.data['t2']})
+        self.setup_procedure_log(name=__name__, file_name='procedure.log')
+        log.info("Starting fit procedure")
+
+    @classmethod
+    def make_results_dict(cls, config):
+        sweep_result = Sweep2.load(config['parameters']['sweep_file'])
+        result_dict = {'i1_loop': sweep_result.data['i1'],
+                       'q1_loop': sweep_result.data['q1'],
+                       'i2_loop': sweep_result.data['i2'],
+                       'q2_loop': sweep_result.data['q2'],
+                       'f1': sweep_result.data['f1'],
+                       't1': sweep_result.data['t1'],
+                       'f2': sweep_result.data['f2'],
+                       't2': sweep_result.data['t2'],
+                       'channel1': 1,
+                       'channel2': 2,
+                       "sweep_file": os.path.basename(config['parameters']['sweep_file'])}
+        result_dict.update(config['result'])
+        for i in range(1, 3):
+            keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
+            keys = [key.format(i) for key in keys]
+            f = np.array(sweep_result.data[f'f{i}'])
+            f = np.linspace(f.min(), f.max(), 10 * f.size)
+            # create lmfit parameters objects
+            guess = lm.Parameters()
+            guess.add_many(*[[key[:-2], value] for key, value in config['guess'].items() if key.endswith(f"_{i}")])
+            result = lm.Parameters()
+            result.add_many(*[[key[:-2], value] for key, value in config['result'].items() if key.endswith(f"_{i}")])
+            # evaluate the model
+            z_guess = mc.models.S21.model(guess, f) - (config['guess'][f'gamma_{i}']
+                                                       + 1j * config['guess'][f'delta_{i}'])
+            z_fit = mc.models.S21.model(result, f) - (config['result'][f'gamma_{i}']
+                                                      + 1j * config['result'][f'delta_{i}'])
+            values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
+                      20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
+            result_dict.update({key: value for key, value in zip(keys, values)})
         return result_dict

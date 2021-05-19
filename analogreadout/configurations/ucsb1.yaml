@@ -71,8 +71,31 @@ gui:
       - !!python/name:mkidplotter.PulsePlotWidget
       - !!python/name:mkidplotter.NoisePlotWidget
       - !!python/name:mkidplotter.HistogramPlotWidget
-    plot_names:
-      - Data
-      - Noise
-      - Histogram
+    plot_names: ['Data', 'Noise', 'Histogram']
+    log_level: INFO
+  fit:
+    name: ucsb1
+    procedure_class: !!python/name:analogreadout.procedures.Fit1
+    x_axes:
+    - ['i1_loop', 'i1_guess', 'i1_fit']
+    - ['f1', 'f1_guess', 'f1_fit']
+    - [["filename", "sweep_file", "f0_1", "q0_1", "qi_1", "qc_1", "a_1", "xa_1", "alpha_1", "beta_1", "gamma_1", "delta_1", "gain0_1", "gain1_1", "gain2_1", "phase0_1", "phase1_1", "phase2_1", "tau_1"]]
+    x_labels:
+    - "I [V]"
+    - "frequency [Hz]"
+    - ["Filename", "Sweep File", "fr [GHz]", "Q", "Qi", "Qc", "a", "xa", "alpha", "beta", "gamma", "delta", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2", "Cable Delay [ns]"]
+    y_axes:
+    - ['q1_loop', 'q1_guess', 'q1_fit']
+    - ['t1', 't1_guess', 't1_fit']
+    - []
+    y_labels: ["Q [V]", "frequency [Hz]", ""]
+    legend_text:
+      - ['data', 'guess', 'fit']
+      - ['data', 'guess', 'fit']
+      - !!python/name:None
+    plot_widget_classes:
+      - !!python/name:mkidplotter.FitPlotWidget
+      - !!python/name:mkidplotter.TransmissionPlotWidget
+      - !!python/name:mkidplotter.ParametersWidget
+    plot_names: ['IQ', '|S21|', 'Results']
     log_level: INFO

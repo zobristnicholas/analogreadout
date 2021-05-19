@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import yaml
 import numpy as np
@@ -7,11 +6,10 @@ from datetime import datetime
 from collections import deque
 from threading import Thread, Event
 from pymeasure.display.Qt import QtGui
-import logging
-from logging.handlers import TimedRotatingFileHandler
 from analogreadout.daq import DAQ
 from mkidplotter import (PulseGUI, TimePlotIndicator)
-                         
+import fit_gui
+
 daq = None
 temperature_updater = None
 
@@ -45,24 +43,6 @@ class Updater(Thread):
             pass
 
 
-def setup_logging():
-    log = logging.getLogger()
-    directory = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
-    if not os.path.isdir(directory):
-        os.mkdir(directory)
-    file_name = datetime.now().strftime("analogreadout_%y%m%d.log")
-    file_path = os.path.join(directory, file_name)
-    handler = TimedRotatingFileHandler(file_path, when="midnight")  # TODO: logfile not rotating properly
-    handler.suffix = "%Y%m%d"
-    handler.extMatch = re.compile(r"^\d{8}$")
-    handler.setLevel("INFO")
-    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%I:%M:%S %p')
-    handler.setFormatter(log_format)
-    log.addHandler(handler)
-
-    return log
-
-    
 def pulse_window(configuration="ucsb2"):
     # Get the configuration
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -91,7 +71,7 @@ def pulse_window(configuration="ucsb2"):
 
 
 if __name__ == '__main__':
-    setup_logging()
+    fit_gui.setup_logging()
     if len(sys.argv) > 1:
         cfg = sys.argv.pop(1)
     else:

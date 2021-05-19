@@ -100,4 +100,51 @@ gui:
     - 'Channel 2: Noise'
     - 'Amplitude Scatter'
     log_level: INFO
+  fit:
+    name: ucsb2
+    procedure_class: !!python/name:analogreadout.procedures.Fit2
+    x_axes:
+    - ['i1_loop', 'i1_guess', 'i1_fit']
+    - ['f1', 'f1_guess', 'f1_fit']
+    - ['i2_loop', 'i2_guess', 'i2_fit']
+    - ['f2', 'f2_guess', 'f2_fit']
+    - - ["filename", "sweep_file", "channel1", "f0_1", "q0_1", "qi_1", "qc_1", "a_1", "xa_1", "alpha_1", "beta_1", "gamma_1", "delta_1", "gain0_1", "gain1_1", "gain2_1", "phase0_1", "phase1_1", "phase2_1", "tau_1"]
+      - ["filename", "sweep_file", "channel2", "f0_2", "q0_2", "qi_2", "qc_2", "a_2", "xa_2", "alpha_2", "beta_2", "gamma_2", "delta_2", "gain0_2", "gain1_2", "gain2_2", "phase0_2", "phase1_2", "phase2_2", "tau_2"]
+    x_labels:
+    - "I [V]"
+    - "frequency [Hz]"
+    - "I [V]"
+    - "frequency [Hz]"
+    - ["Filename", "Sweep File", "Channel", "fr [GHz]", "Q", "Qi", "Qc", "a", "xa", "alpha", "beta", "gamma", "delta", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2", "Cable Delay [ns]"]
+    y_axes:
+    - ['q1_loop', 'q1_guess', 'q1_fit']
+    - ['t1', 't1_guess', 't1_fit']
+    - ['q2_loop', 'q2_guess', 'q2_fit']
+    - ['t2', 't2_guess', 't2_fit']
+    - []
+    y_labels:
+    - "Q [V]"
+    - "frequency [Hz]"
+    - "Q [V]"
+    - "frequency [Hz]"
+    - ""
+    legend_text:
+    - ['data', 'guess', 'fit']
+    - ['data', 'guess', 'fit']
+    - ['data', 'guess', 'fit']
+    - ['data', 'guess', 'fit']
+    - !!python/name:None
+    plot_widget_classes:
+    - !!python/name:mkidplotter.FitPlotWidget
+    - !!python/name:mkidplotter.TransmissionPlotWidget
+    - !!python/name:mkidplotter.FitPlotWidget
+    - !!python/name:mkidplotter.TransmissionPlotWidget
+    - !!python/name:mkidplotter.ParametersWidget
+    plot_names:
+    - 'Channel 1: IQ'
+    - 'Channel 1: |S21|'
+    - 'Channel 2: IQ'
+    - 'Channel 2: |S21|'
+    - 'Results'
+    log_level: INFO
     

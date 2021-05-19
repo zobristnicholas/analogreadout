@@ -7,7 +7,8 @@ from pymeasure.display.Qt import QtGui
 from analogreadout.daq import DAQ
 from mkidplotter import SweepGUI, get_image_icon, TimePlotIndicator
          
-import pulse_gui                
+import fit_gui
+import pulse_gui
 
 
 def open_pulse_gui(self, experiment, bias=None, configuration=None):
@@ -71,7 +72,7 @@ def sweep_window(configuration="ucsb2"):
 
 
 if __name__ == '__main__':
-    pulse_gui.setup_logging()
+    fit_gui.setup_logging()
     if len(sys.argv) > 1:
         cfg = sys.argv.pop(1)
     else:
