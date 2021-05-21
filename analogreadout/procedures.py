@@ -968,12 +968,15 @@ class Fit(FitProcedure):
                       "alpha", "beta", "gamma", "delta"]
     DERIVED_PARAMETERS = ["q0", "tau", "fr", "fm"]
     ranges = None
+    do_fit = None
 
     def execute(self):
         if self.should_stop():
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
         for i, channel in enumerate(self.CHANNELS):
+            if self.do_fit is not None and not self.do_fit[i]:
+                continue
             # Load in the data.
             log.info(f"Loading sweep data from channel {channel}.")
             loop = mc.Loop.from_file(self.sweep_file, channel=channel - 1)
@@ -1127,6 +1130,8 @@ class Fit2(Fit):
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
     ui = RangeInput.set_labels(["Channel 1:", "Channel 2:"])  # class factory
     ranges = VectorParameter("Frequency ranges", default=[np.nan, np.nan, np.nan, np.nan], length=4, ui_class=ui)
+    ui = BooleanListInput.set_labels(["Fit Channel 1", "Fit Channel 2"])  # class factory
+    do_fit = VectorParameter("", default=[1, 1], length=2, ui_class=ui)
 
     def startup(self):
         if self.should_stop():
@@ -1159,6 +1164,8 @@ class Fit2(Fit):
                        "sweep_file": os.path.basename(config['parameters']['sweep_file'])}
         result_dict.update(config['result'])
         for i in range(1, 3):
+            if not config['parameters']['do_fit'][i - 1]:
+                continue
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(i) for key in keys]
             f = np.array(sweep_result.data[f'f{i}'])
