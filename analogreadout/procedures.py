@@ -997,13 +997,12 @@ class Fit(FitProcedure):
                     for index, option in enumerate(options[1:]):
                         if not np.isnan(option) and not np.isinf(option):
                             options[index + 1] = np.sqrt(option)
-                if options[0]:  # vary
-                    guess[param].set(vary=True)
+                guess[param].set(vary=bool(options[0]))  # vary
                 if not np.isnan(options[1]):  # value
                     guess[param].set(value=float(options[1]))
-                if not np.isnan(options[2]):  # value
+                if not np.isnan(options[2]):  # min
                     guess[param].set(min=float(options[2]))
-                if not np.isnan(options[3]):  # value
+                if not np.isnan(options[3]):  # max
                     guess[param].set(max=float(options[3]))
             self.emit("progress", 50 * (i + 1) / len(self.CHANNELS))
 
