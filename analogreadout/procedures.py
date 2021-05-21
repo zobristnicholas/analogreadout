@@ -9,7 +9,7 @@ import scipy.signal as sig
 from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
-                         Indicator, FloatIndicator, FileParameter, FitProcedure, FitInput)
+                         Indicator, FloatIndicator, FileParameter, FitProcedure, FitInput, RangeInput)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
                                   VectorParameter)
 from analogreadout.utils import load
@@ -967,18 +967,24 @@ class Fit(FitProcedure):
     FIT_PARAMETERS = ["f0", "qi", "qc", "xa", "a", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2",
                       "alpha", "beta", "gamma", "delta"]
     DERIVED_PARAMETERS = ["q0", "tau", "fr", "fm"]
+    ranges = None
+
     def execute(self):
         if self.should_stop():
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
-        for channel in self.CHANNELS:
+        for i, channel in enumerate(self.CHANNELS):
             # Load in the data.
             log.info(f"Loading sweep data from channel {channel}.")
             loop = mc.Loop.from_file(self.sweep_file, channel=channel - 1)
+            if self.ranges is not None:
+                loop.mask_from_bounds(lower=self.ranges[2 * i] if not np.isnan(self.ranges[2 * i]) else None,
+                                      upper=self.ranges[2 * i + 1] if not np.isnan(self.ranges[2 * i + 1]) else None)
 
             # Create the guess.
             log.info(f"Creating the guess for channel {channel}.")
-            guess = mc.models.S21.guess(loop.z, loop.f, imbalance=loop.imbalance_calibration,
+            guess = mc.models.S21.guess(loop.z[loop.mask], loop.f[loop.mask],
+                                        imbalance=loop.imbalance_calibration,
                                         offset=loop.offset_calibration,
                                         nonlinear_resonance=True if self.a[0] else False,
                                         quadratic_phase=True if self.phase2[0] else False)
@@ -999,10 +1005,11 @@ class Fit(FitProcedure):
                     guess[param].set(min=float(options[2]))
                 if not np.isnan(options[3]):  # value
                     guess[param].set(max=float(options[3]))
+            self.emit("progress", 50 * (i + 1) / len(self.CHANNELS))
 
             # Do the fit.
             log.info(f"Fitting channel {channel}.")
-            loop.lmfit(mc.models.S21, guess, label='fit_gui')
+            loop.lmfit(mc.models.S21, guess, label='fit_gui', use_mask=True)
             result = loop.lmfit_results['fit_gui']['result'].params
 
             # Emit the results to GUI.
@@ -1012,7 +1019,7 @@ class Fit(FitProcedure):
                                  for param in self.DERIVED_PARAMETERS})
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(channel) for key in keys]
-            f = np.linspace(loop.f.min(), loop.f.max(), 10 * loop.f.size)
+            f = np.linspace(loop.f[loop.mask].min(), loop.f[loop.mask].max(), 10 * loop.f[loop.mask].size)
             z_guess = mc.models.S21.model(guess, f) - (guess['gamma'] + 1j * guess['delta'])
             z_fit = mc.models.S21.model(result, f) - (result['gamma'] + 1j * result['delta'])
             values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
@@ -1022,8 +1029,8 @@ class Fit(FitProcedure):
                                  f"channel{channel}": channel})
             self.emit("results", results_dict)
 
-            log.info(f"Saving channel {channel}.")
             # Save the results.
+            log.info(f"Saving channel {channel}.")
             with open(os.path.join(self.directory, self.file_name()), "r") as f:
                 config = yaml.load(f, Loader=yaml.Loader)
             config['guess'] = config.get('guess', {})
@@ -1034,6 +1041,7 @@ class Fit(FitProcedure):
             config['result'].update({param + f"_{channel}": result[param].value for param in self.DERIVED_PARAMETERS})
             with open(os.path.join(self.directory, self.file_name()), "w") as f:
                 yaml.dump(config, f)
+            self.emit("progress", 100 * (i + 1) / len(self.CHANNELS))
 
     @classmethod
     def load(cls, file_path):
@@ -1061,6 +1069,7 @@ class Fit1(Fit):
                     't1', 't1_guess', 't1_fit', 'channel1', "sweep_file", "filename"]
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
+    ranges = VectorParameter("Frequency ranges", default=[np.nan, np.nan], length=2, ui_class=RangeInput)
 
     def startup(self):
         if self.should_stop():
@@ -1085,6 +1094,13 @@ class Fit1(Fit):
         results_dict.update(config['result'])
         keys = ["i1_guess", "i1_fit", "q1_guess", "q1_fit", "f1_guess", "f1_fit", "t1_guess", "t1_fit"]
         f = np.array(sweep_result.data["f"])
+        mask = np.ones_like(f, dtype=bool)
+        f_range = config['parameters']['ranges']
+        if not np.isnan(f_range[0]):
+            mask = mask & (f >= f_range[0])
+        if not np.isnan(f_range[1]):
+            mask = mask & (f <= f_range[1])
+        f = f[mask]
         f = np.linspace(f.min(), f.max(), 10 * f.size)
         # create lmfit parameters objects
         guess = lm.Parameters()
@@ -1110,6 +1126,8 @@ class Fit2(Fit):
                     't2', 't2_guess', 't2_fit', 'channel2', "sweep_file", "filename"]
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
+    ui = RangeInput.set_labels(["Channel 1:", "Channel 2:"])  # class factory
+    ranges = VectorParameter("Frequency ranges", default=[np.nan, np.nan, np.nan, np.nan], length=4, ui_class=ui)
 
     def startup(self):
         if self.should_stop():
@@ -1145,6 +1163,13 @@ class Fit2(Fit):
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(i) for key in keys]
             f = np.array(sweep_result.data[f'f{i}'])
+            mask = np.ones_like(f, dtype=bool)
+            f_range = config['parameters']['ranges']
+            if not np.isnan(f_range[2 * i - 2]):
+                mask = mask & (f >= f_range[2 * i - 2])
+            if not np.isnan(f_range[2 * i - 1]):
+                mask = mask & (f <= f_range[2 * i - 1])
+            f = f[mask]
             f = np.linspace(f.min(), f.max(), 10 * f.size)
             # create lmfit parameters objects
             guess = lm.Parameters()
