@@ -966,14 +966,26 @@ class Pulse2(Pulse):
 class Fit(FitProcedure):
     FIT_PARAMETERS = ["f0", "qi", "qc", "xa", "a", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2",
                       "alpha", "beta", "gamma", "delta"]
-    TOOLTIPS = {"f0": "the low power resonance frequency", "qi": "the internal quality factor",
-                "qc": "the coupling quality factor", "xa": "the fractional resonator skew",
-                "a": "the inductive nonlinearity doi:10.1063/1.4794808", "gain0": "0th term in the gain polynomial",
-                "gain1": "1st term in the gain polynomial", "gain2": "2nd term in the gain polynomial",
-                "phase0": "0th term in the phase polynomial", "phase1": "1st term in the phase polynomial",
-                "phase2": "2nd term in the phase polynomial", "alpha": "IQ mixer amplitude imbalance (ideal is 1)",
-                "beta": "IQ mixer phase imbalance (ideal is 0 or pi)", "gamma": "IQ mixer I offset",
-                "delta": "IQ mixer Q offset"}
+    TOOLTIPS = {"f0": "the low power resonance frequency",
+                "qi": "the internal quality factor",
+                "qc": "the coupling quality factor",
+                "xa": ("the fractional resonator skew (as defined in "
+                       "Zobrist et al. 2020 doi:10.1117/1.JATIS.7.1.010501)"),
+                "a": ("the inductive nonlinearity (the formula for 'a' can be found in "
+                      "Swenson et al. 2013 doi:10.1063/1.4794808)"),
+                "gain0": "0th term in the gain polynomial",
+                "gain1": "1st term in the gain polynomial",
+                "gain2": "2nd term in the gain polynomial",
+                "phase0": "0th term in the phase polynomial",
+                "phase1": "1st term in the phase polynomial",
+                "phase2": ("2nd term in the phase polynomial (there are few physical motivations for this parameter "
+                           "so it is usually not fit)"),
+                "alpha": "IQ mixer amplitude imbalance (ideal is 1)",
+                "beta": "IQ mixer phase imbalance (ideal is 0 or pi)",
+                "gamma": ("IQ mixer Q offset (this parameter is determined automatically during the procedure and "
+                          "doesn't need to be fit)"),
+                "delta": ("IQ mixer Q offset (this parameter is determined automatically during the procedure and "
+                          "doesn't need to be fit)")}
     DERIVED_PARAMETERS = ["q0", "tau", "fr", "fm"]
     ranges = None
     do_fit = None
