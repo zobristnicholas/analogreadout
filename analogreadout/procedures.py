@@ -1033,6 +1033,7 @@ class Fit(FitProcedure):
             log.info(f"Fitting channel {channel}.")
             loop.lmfit(mc.models.S21, guess, label='fit_gui', use_mask=True)
             result = loop.lmfit_results['fit_gui']['result'].params
+            log.info("lmfit report:\n" + loop.fit_report(label='fit_gui', fit_type='lmfit', return_string=True))
 
             # Emit the results to GUI.
             results_dict = {param + f"_{channel}": (result[param].value, result[param].stderr)
