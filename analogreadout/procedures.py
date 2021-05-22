@@ -1035,9 +1035,9 @@ class Fit(FitProcedure):
             result = loop.lmfit_results['fit_gui']['result'].params
 
             # Emit the results to GUI.
-            results_dict = {param + f"_{channel}": result[param].value
+            results_dict = {param + f"_{channel}": (result[param].value, result[param].stderr)
                             for param in self.FIT_PARAMETERS}
-            results_dict.update({param + f"_{channel}": result[param].value
+            results_dict.update({param + f"_{channel}": (result[param].value, result[param].stderr)
                                  for param in self.DERIVED_PARAMETERS})
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(channel) for key in keys]
@@ -1059,8 +1059,10 @@ class Fit(FitProcedure):
             config['result'] = config.get('result', {})
             config['guess'].update({param + f"_{channel}": guess[param].value for param in self.FIT_PARAMETERS})
             config['guess'].update({param + f"_{channel}": guess[param].value for param in self.DERIVED_PARAMETERS})
-            config['result'].update({param + f"_{channel}": result[param].value for param in self.FIT_PARAMETERS})
-            config['result'].update({param + f"_{channel}": result[param].value for param in self.DERIVED_PARAMETERS})
+            config['result'].update({param + f"_{channel}": (result[param].value, result[param].stderr)
+                                     for param in self.FIT_PARAMETERS})
+            config['result'].update({param + f"_{channel}": (result[param].value, result[param].stderr)
+                                     for param in self.DERIVED_PARAMETERS})
             with open(os.path.join(self.directory, self.file_name()), "w") as f:
                 yaml.dump(config, f)
             self.emit("progress", 100 * (i + 1) / len(self.CHANNELS))
@@ -1128,12 +1130,13 @@ class Fit1(Fit):
         guess = lm.Parameters()
         guess.add_many([[key[:-2], value] for key, value in config['guess'].items() if key.endswith(f"_1")])
         result = lm.Parameters()
-        result.add_many([[key[:-2], value] for key, value in config['result'].items() if key.endswith(f"_1")])
+        result.add_many([[key[:-2], value[0] if isinstance(value, (list, tuple)) else value]
+                         for key, value in config['result'].items() if key.endswith(f"_1")])
         # evaluate the model
         z_guess = mc.models.S21.model(guess, f) - (config['guess']['gamma_1']
                                                    + 1j * config['guess']['delta_1'])
-        z_fit = mc.models.S21.model(result, f) - (config['result']['gamma_1']
-                                                  + 1j * config['result']['delta_1'])
+        z_fit = mc.models.S21.model(result, f) - (np.atleast_1d(config['result']['gamma_1'])[0]
+                                                  + 1j * np.atleast_1d(config['result']['delta_1'])[0])
         values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
                   20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
         result_dict.update({key: value for key, value in zip(keys, values)})
@@ -1201,12 +1204,13 @@ class Fit2(Fit):
             guess = lm.Parameters()
             guess.add_many(*[[key[:-2], value] for key, value in config['guess'].items() if key.endswith(f"_{i}")])
             result = lm.Parameters()
-            result.add_many(*[[key[:-2], value] for key, value in config['result'].items() if key.endswith(f"_{i}")])
+            result.add_many(*[[key[:-2], value[0] if isinstance(value, (list, tuple)) else value]
+                              for key, value in config['result'].items() if key.endswith(f"_{i}")])
             # evaluate the model
             z_guess = mc.models.S21.model(guess, f) - (config['guess'][f'gamma_{i}']
                                                        + 1j * config['guess'][f'delta_{i}'])
-            z_fit = mc.models.S21.model(result, f) - (config['result'][f'gamma_{i}']
-                                                      + 1j * config['result'][f'delta_{i}'])
+            z_fit = mc.models.S21.model(result, f) - (np.atleast_1d(config['result'][f'gamma_{i}'])[0]
+                                                      + 1j * np.atleast_1d(config['result'][f'delta_{i}'])[0])
             values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
                       20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
             result_dict.update({key: value for key, value in zip(keys, values)})
