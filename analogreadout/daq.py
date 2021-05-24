@@ -55,10 +55,13 @@ class DAQ:
     """
     def __init__(self, configuration=DEFAULT_CONFIG):
         # load configuration
-        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "configurations", configuration.lower() + ".yaml")
-        with open(file_name) as f:
-            self.config = yaml.load(f, Loader=yaml.FullLoader)
+        if isinstance(configuration, str):
+            file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "configurations", configuration.lower() + ".yaml")
+            with open(file_name) as f:
+                self.config = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            self.config = configuration
 
         # initialize all instruments as None
         self.instrument_names = ('dac_atten',  # digital to analog converter

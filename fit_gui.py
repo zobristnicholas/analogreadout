@@ -22,28 +22,28 @@ def setup_logging():
     return log
 
 
-def fit_window(configuration="ucsb2"):
-    # Get the configuration
-    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             'analogreadout', 'configurations',
-                             configuration.lower() + ".yaml")
-    with open(file_name, "r") as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-
+def fit_window(configuration):
     # make the window
-    w = FitGUI(**config['gui']['fit'])
+    w = FitGUI(**configuration['gui']['fit'])
     return w
 
 
 if __name__ == '__main__':
+    # Set up the logging.
     setup_logging()
-    if len(sys.argv) > 1:
-        cfg = sys.argv.pop(1)
-    else:
-        cfg = "ucsb2"
+
+    # Open the configuration file.
+    file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
+    if not os.path.isfile(file_name):  # check configurations folder
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
+    with open(file_path, "r") as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    # Create the window.
     app = QtGui.QApplication(sys.argv)
     # app.setWindowIcon(get_image_icon("fit.png"))
-    window = fit_window(cfg)
+    window = fit_window(config)
     window.activateWindow()
     window.show()
     ex = app.exec_()

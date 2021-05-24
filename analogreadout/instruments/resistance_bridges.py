@@ -26,8 +26,11 @@ class LakeShore370AC(LS370):
     WAIT_MEASURE_LONG = 1
 
     def __init__(self, address, thermometer, scanner=None):
-        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
-                                 "configurations", thermometer.lower() + ".yaml")
+        if not os.path.isfile(thermometer):
+            file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                                     "configurations", thermometer.lower() + ".yaml")
+        else:
+            file_name = thermometer
         with open(file_name, "r") as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
         self.channel = self.config['channel']

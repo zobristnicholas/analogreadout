@@ -64,14 +64,7 @@ def open_fit_gui(self, experiment, configuration=None):
     self.fit_window.show()
 
 
-def sweep_window(configuration="ucsb2"):
-    # Get the configuration
-    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             'analogreadout', 'configurations',
-                             configuration.lower() + ".yaml")
-    with open(file_name, "r") as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-
+def sweep_window(configuration):
     # Start the temperature updater
     pulse_gui.temperature_updater = pulse_gui.Updater()
     indicators = TimePlotIndicator(pulse_gui.time_stamps, pulse_gui.temperatures, title='Device Temperature [mK]')
@@ -82,24 +75,33 @@ def sweep_window(configuration="ucsb2"):
     SweepGUI.open_fit_gui = partialmethod(open_fit_gui, configuration=configuration)
 
     # make the window
-    w = SweepGUI(persistent_indicators=indicators, **config['gui']['sweep'])
+    w = SweepGUI(persistent_indicators=indicators, **configuration['gui']['sweep'])
 
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     pulse_gui.daq = DAQ(configuration)
-    config['gui']['sweep']['procedure_class'].connect_daq(pulse_gui.daq)
+    configuration['gui']['sweep']['procedure_class'].connect_daq(pulse_gui.daq)
     return w
 
 
 if __name__ == '__main__':
+    # Set up the logging.
     fit_gui.setup_logging()
-    if len(sys.argv) > 1:
-        cfg = sys.argv.pop(1)
-    else:
-        cfg = "ucsb2"
+
+    # Open the configuration file.
+    file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
+    file_path = os.path.join(os.getcwd(), file_name)
+    print(file_path)
+    if not os.path.isfile(file_path):  # check configurations folder
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
+    with open(file_path, "r") as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    # Create the window.
     app = QtGui.QApplication(sys.argv)
     app.setWindowIcon(get_image_icon("loop.png"))
-    window = sweep_window(cfg)
+    window = sweep_window(config)
     window.activateWindow()
     window.show()
     ex = app.exec_()

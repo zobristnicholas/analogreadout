@@ -43,43 +43,43 @@ class Updater(Thread):
             pass
 
 
-def pulse_window(configuration="ucsb2"):
-    # Get the configuration
-    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             'analogreadout', 'configurations',
-                             configuration.lower() + ".yaml")
-    with open(file_name, "r") as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-
+def pulse_window(configuration):
     # Start the temperature updater
     indicators = TimePlotIndicator(time_stamps, temperatures, title='Device Temperature [mK]')
     global temperature_updater
     temperature_updater = Updater()
 
     # make the window
-    w = PulseGUI(persistent_indicators=indicators, **config['gui']['pulse'])
+    w = PulseGUI(persistent_indicators=indicators, **configuration['gui']['pulse'])
 
     # create and connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     global daq
     if daq is not None:
-        config['gui']['pulse']['procedure_class'].connect_daq(daq)
+        configuration['gui']['pulse']['procedure_class'].connect_daq(daq)
     else:
         daq = DAQ(configuration)
-        config['gui']['pulse']['procedure_class'].connect_daq(daq)
+        configuration['gui']['pulse']['procedure_class'].connect_daq(daq)
     return w
 
 
 if __name__ == '__main__':
+    # Set up the logging.
     fit_gui.setup_logging()
-    if len(sys.argv) > 1:
-        cfg = sys.argv.pop(1)
-    else:
-        cfg = "ucsb2"
+
+    # Open the configuration file.
+    file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
+    if not os.path.isfile(file_name):  # check configurations folder
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
+    with open(file_path, "r") as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    # Create the window.
     app = QtGui.QApplication(sys.argv)
     # TODO: add pulse image for icon
     # app.setWindowIcon(get_image_icon("pulse.png"))
-    window = pulse_window(cfg)
+    window = pulse_window(config)
     window.activateWindow()
     window.show()
     ex = app.exec_()
