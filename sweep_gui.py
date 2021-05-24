@@ -45,6 +45,25 @@ def open_pulse_gui(self, experiment, bias=None, configuration=None):
     self.pulse_window.show()
 
 
+def open_fit_gui(self, experiment, configuration=None):
+    # Only make fit gui if it hasn't been opened or was closed
+    if self.fit_window is None or not self.fit_window.isVisible():
+        self.fit_window = fit_gui.fit_window(configuration=configuration)
+    fit_parameters = self.fit_window.make_procedure().parameter_objects()
+
+    # set the sweep file and directory
+    directory = experiment.procedure.directory
+    file_name = experiment.data_filename
+    file_path = os.path.join(directory, file_name)
+    fit_parameters['directory'].value = directory
+    fit_parameters['sweep_file'].value = file_path
+    self.fit_window.inputs.set_parameters(fit_parameters)
+
+    # show the window
+    self.fit_window.activateWindow()
+    self.fit_window.show()
+
+
 def sweep_window(configuration="ucsb2"):
     # Get the configuration
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -60,6 +79,7 @@ def sweep_window(configuration="ucsb2"):
     # patch the SweepGUI class to open the pulse gui
     bias = config['gui']['bias']
     SweepGUI.open_pulse_gui = partialmethod(open_pulse_gui, bias=bias, configuration=configuration)
+    SweepGUI.open_fit_gui = partialmethod(open_fit_gui, configuration=configuration)
 
     # make the window
     w = SweepGUI(persistent_indicators=indicators, **config['gui']['sweep'])
