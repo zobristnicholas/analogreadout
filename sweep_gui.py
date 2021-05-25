@@ -91,7 +91,6 @@ if __name__ == '__main__':
     # Open the configuration file.
     file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
     file_path = os.path.join(os.getcwd(), file_name)
-    print(file_path)
     if not os.path.isfile(file_path):  # check configurations folder
         file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  'analogreadout', 'configurations', file_name.lower() + ".yaml")
