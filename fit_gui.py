@@ -14,7 +14,7 @@ def setup_logging():
         os.mkdir(directory)
     file_name = datetime.now().strftime("analogreadout_%y%m%d.log")
     file_path = os.path.join(directory, file_name)
-    handler = logging.FileHandler(file_path, mode='a')
+    handler = logging.FileHandler(file_path, mode='a', encoding='utf-8')
     handler.setLevel("INFO")
     log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%m/%d/%Y %I:%M:%S %p')
     handler.setFormatter(log_format)
