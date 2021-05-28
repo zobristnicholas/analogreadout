@@ -52,7 +52,6 @@ class Sweep(SweepBaseProcedure):
     z_offset = None
     calibration = None
     noise_bias = None
-    z_offset_interp = None
 
     sample_rate = FloatParameter("Sample Rate", units="MHz", default=0.8)
     n_samples = IntegerParameter("Samples to Average", default=20000)
@@ -92,7 +91,6 @@ class Sweep(SweepBaseProcedure):
             if self.should_stop():
                 log.warning(STOP_WARNING.format(self.__class__.__name__))
                 return
-        self.compute_offset()
         # calibrate the data (if possible)
         self.calibrate()
         # initialize the system in the right mode
@@ -131,19 +129,9 @@ class Sweep(SweepBaseProcedure):
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
         log.info("Finished sweep procedure")
-        
-    @staticmethod
-    def interpolate_offset(freqs, f_offset, z_offset):
-        z_offset_interp = np.zeros(freqs.shape, dtype=np.complex64)
-        for ind in range(f_offset.shape[0]):
-            z_offset_interp[ind, :] = interp1d(f_offset[ind, :], z_offset[ind, :])(freqs[ind, :])
-        return z_offset_interp
-        
-    def compute_offset(self):
-        self.z_offset_interp = self.interpolate_offset(self.freqs, self.f_offset, self.z_offset)
      
     def fit_data(self):
-        z = self.z - self.z_offset_interp
+        z = self.z - np.mean(self.z_offset, axis=1, keepdims=True)
         z[np.isnan(z)] = 0  # nans mess with the filter
         filter_win_length = int(np.round(z.shape[1] / 100.0))
         if filter_win_length % 2 == 0:
@@ -176,7 +164,6 @@ class Sweep(SweepBaseProcedure):
         self.z_offset = None
         self.calibration = None
         self.noise_bias = None
-        self.z_offset_interp = None
         self.metadata = {"parameters": {}}
            
     @classmethod
@@ -237,13 +224,14 @@ class Sweep1(Sweep):
         self.update_metadata()
     
     def get_sweep_data(self, index):
+        z_offset = np.mean(self.z_offset)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - DB0
+            t = 20 * np.log10(np.abs(self.z[0, index] - z_offset)) - DB0
         t = np.nan if np.isinf(t) else t
         data = {"f": self.freqs[0, index],
-                "i": self.z[0, index].real - self.z_offset_interp[0, index].real,
-                "q": self.z[0, index].imag - self.z_offset_interp[0, index].imag,
+                "i": self.z[0, index].real - z_offset.real,
+                "q": self.z[0, index].imag - z_offset.imag,
                 "t": t}
         return data
    
@@ -261,16 +249,16 @@ class Sweep1(Sweep):
         except FileNotFoundError:
             psd = None
             freqs = None
-        z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
+        z_offset = np.mean(npz_file['z_offset'])
         # fill array
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - DB0
+            t = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset)) - DB0
         t[np.isinf(t)] = np.nan
 
         result_dict = {"f": npz_file["freqs"][0, :],
-                       "i": npz_file["z"][0, :].real - z_offset_interp[0, :].real,
-                       "q": npz_file["z"][0, :].imag - z_offset_interp[0, :].imag,
+                       "i": npz_file["z"][0, :].real - z_offset.real,
+                       "q": npz_file["z"][0, :].imag - z_offset.imag,
                        "t": t}
         if psd is not None and freqs is not None:
             result_dict.update({"i_psd": psd[0, 0, 1:]['I'],
@@ -350,19 +338,21 @@ class Sweep2(Sweep):
         self.update_metadata()
 
     def get_sweep_data(self, index):
+        z_offset = np.mean(self.z_offset, axis=1)
+        print(z_offset.shape)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(self.z[0, index] - self.z_offset_interp[0, index])) - DB0
-            t2 = 20 * np.log10(np.abs(self.z[1, index] - self.z_offset_interp[1, index])) - DB0
+            t1 = 20 * np.log10(np.abs(self.z[0, index] - z_offset[0])) - DB0
+            t2 = 20 * np.log10(np.abs(self.z[1, index] - z_offset[1])) - DB0
         t1 = np.nan if np.isinf(t1) else t1
-        t2 = np.nan if np.isinf(t2) else t2    
+        t2 = np.nan if np.isinf(t2) else t2
         data = {"f1": self.freqs[0, index],
-                "i1": self.z[0, index].real - self.z_offset_interp[0, index].real,
-                "q1": self.z[0, index].imag - self.z_offset_interp[0, index].imag,
+                "i1": self.z[0, index].real - z_offset[0].real,
+                "q1": self.z[0, index].imag - z_offset[0].imag,
                 "t1": t1,
                 "f2": self.freqs[1, index],
-                "i2": self.z[1, index].real - self.z_offset_interp[1, index].real,
-                "q2": self.z[1, index].imag - self.z_offset_interp[1, index].imag,
+                "i2": self.z[1, index].real - z_offset[1].real,
+                "q2": self.z[1, index].imag - z_offset[1].imag,
                 "t2": t2}
         return data
     
@@ -380,22 +370,22 @@ class Sweep2(Sweep):
         except FileNotFoundError:
             psd = None
             freqs = None
-        z_offset_interp = cls.interpolate_offset(npz_file["freqs"], npz_file["f_offset"], npz_file["z_offset"])
+        z_offset = np.mean(npz_file['z_offset'], axis=1)
         # fill array
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset_interp[0, :])) - DB0
-            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset_interp[1, :])) - DB0
+            t1 = 20 * np.log10(np.abs(npz_file["z"][0, :] - z_offset[0])) - DB0
+            t2 = 20 * np.log10(np.abs(npz_file["z"][1, :] - z_offset[1])) - DB0
         t1[np.isinf(t1)] = np.nan
         t2[np.isinf(t2)] = np.nan
 
         result_dict = {"f1": npz_file["freqs"][0, :],
-                       "i1": npz_file["z"][0, :].real - z_offset_interp[0, :].real,
-                       "q1": npz_file["z"][0, :].imag - z_offset_interp[0, :].imag,
+                       "i1": npz_file["z"][0, :].real - z_offset[0].real,
+                       "q1": npz_file["z"][0, :].imag - z_offset[0].imag,
                        "t1": t1,
                        "f2": npz_file["freqs"][1, :],
-                       "i2": npz_file["z"][1, :].real - z_offset_interp[1, :].real,
-                       "q2": npz_file["z"][1, :].imag - z_offset_interp[1, :].imag,
+                       "i2": npz_file["z"][1, :].real - z_offset[1].real,
+                       "q2": npz_file["z"][1, :].imag - z_offset[1].imag,
                        "t2": t2}
         if psd is not None and freqs is not None:
             result_dict.update({"i1_psd": psd[0, 0, 1:]['I'],
@@ -991,60 +981,89 @@ class Fit(FitProcedure):
     do_fit = None
 
     def execute(self):
-        if self.should_stop():
-            log.warning(STOP_WARNING.format(self.__class__.__name__))
-            return
         for i, channel in enumerate(self.CHANNELS):
+            if self.should_stop():
+                log.warning(STOP_WARNING.format(self.__class__.__name__))
+                return
             if self.do_fit is not None and not self.do_fit[i]:
                 continue
-            # Load in the data.
-            log.info(f"Loading sweep data from channel {channel}.")
-            loop = mc.Loop.from_file(self.sweep_file, channel=channel - 1)
-            if self.ranges is not None:
-                loop.mask_from_bounds(lower=self.ranges[2 * i] if not np.isnan(self.ranges[2 * i]) else None,
-                                      upper=self.ranges[2 * i + 1] if not np.isnan(self.ranges[2 * i + 1]) else None)
-
-            # Create the guess.
-            log.info(f"Creating the guess for channel {channel}.")
-            guess = mc.models.S21.guess(loop.z[loop.mask], loop.f[loop.mask],
-                                        imbalance=loop.imbalance_calibration,
-                                        offset=loop.offset_calibration,
-                                        nonlinear_resonance=True if self.a[0] else False,
-                                        quadratic_phase=True if self.phase2[0] else False)
-
-            # Overload the guess with GUI options if specified.
-            for param in self.FIT_PARAMETERS:
-                options = getattr(self, param)
-                if param == "a":  # "a_sqrt" is really being varied not "a"
-                    param = "a_sqrt"
-                    for index, option in enumerate(options[1:]):
-                        if not np.isnan(option) and not np.isinf(option):
-                            options[index + 1] = np.sqrt(option)
-                guess[param].set(vary=bool(options[0]))  # vary
-                if not np.isnan(options[1]):  # value
-                    guess[param].set(value=float(options[1]))
-                if not np.isnan(options[2]):  # min
-                    guess[param].set(min=float(options[2]))
-                if not np.isnan(options[3]):  # max
-                    guess[param].set(max=float(options[3]))
-            self.emit("progress", 50 * (i + 1) / len(self.CHANNELS))
 
             # Do the fit.
-            log.info(f"Fitting channel {channel}.")
-            loop.lmfit(mc.models.S21, guess, label='fit_gui', use_mask=True)
-            result = loop.lmfit_results['fit_gui']['result'].params
-            log.info("lmfit report:\n" + loop.fit_report(label='fit_gui', fit_type='lmfit', return_string=True))
+            log.info(f"Processing channel {channel}.")
+            # Try to fit the whole resonator by using multiple sweeps.
+            if self.config_file is not None:
+                log.info(f"Loading sweep from {self.config_file}.")
+                sweep = mc.Sweep.from_file(self.config_file, unique=False, sort=False)  # load the sweep
+                # Find the right resonator and loop in the sweep.
+                loop, resonator = self.find_loop(sweep, channel)
+                log.info(f"Fitting loop {loop.name}.")
+
+                # We've already fit the resonator, so grab the loop from the cache.
+                if resonator.name in self.fitted_resonators.keys():
+                    log.info(f"Resonator {resonator.name} has been pre-fit. Using this solution.")
+                    r, guesses = self.fitted_resonators[resonator.name]
+                    for ii, l in enumerate(r.loops):
+                        if l.name == loop.name:
+                            loop = l  # switch out the loop for the prefitted version
+                            guess = guesses[ii]
+
+                # We haven't already fit the resonator, so fit it.
+                else:
+                    log.info(f"Fitting resonator {resonator.name}.")
+                    guesses = []
+                    for l in resonator.loops:
+                        self.mask_loop(l, i)
+                        guesses.append(self.guess(l))
+                        if l.name == loop.name:
+                            guess = guesses[-1]
+
+                    # Only include the nonlinear fit if we are varying that parameter.
+                    if self.a[0]:
+                        extra_fits = (mc.experiments.temperature_fit, mc.experiments.power_fit,
+                                      mc.experiments.nonlinear_fit, mc.experiments.linear_fit)
+                    # Don't do the linear fit if we are fixing a non-zero nonlinearity.
+                    elif not self.a[0] and not self.a[1]:  # fixed at non-zero nonlinearity
+                        extra_fits = (mc.experiments.temperature_fit, mc.experiments.power_fit)
+                    else:
+                        extra_fits = (mc.experiments.temperature_fit, mc.experiments.power_fit,
+                                      mc.experiments.linear_fit)
+                    n_fits = len(resonator.loops) * (len(extra_fits) * 2 + 1)
+
+                    class Progress():
+                        def __init__(self):
+                            self.index = 0
+
+                        def __call__(s):
+                            s.index += 1
+                            self.emit("progress", 100 * (i + s.index / n_fits) / len(self.CHANNELS))
+
+                    mc.experiments.multiple_fit(resonator, extra_fits=extra_fits, guess=guesses, fit_type='lmfit',
+                                                callback=Progress(), iterations=2)
+                    self.fitted_resonators[resonator.name] = (resonator, guesses)
+                    log.info(f"lmfit report for {loop.name}: {loop.lmfit_results['best']['label']}:\n"
+                             + loop.fit_report(label='best', fit_type='lmfit', return_string=True))
+
+            # Just fit the loop if we don't have the whole resonator.
+            else:
+                loop = mc.Loop.from_file(self.sweep_file, channel=channel - 1)
+                log.info(f"Fitting loop {loop.name}.")
+                self.mask_loop(loop, i)
+                guess = self.guess(loop)
+                mc.experiments.basic_fit(loop, guess=guess, fit_type='lmfit')
+                log.info(f"lmfit report for {loop.name}: {loop.lmfit_results['best']['label']}:\n"
+                         + loop.fit_report(label='best', fit_type='lmfit', return_string=True))
+            result = loop.lmfit_results['best']['result'].params
 
             # Emit the results to GUI.
-            results_dict = {param + f"_{channel}": (result[param].value, result[param].stderr)
+            results_dict = {param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
                             for param in self.FIT_PARAMETERS}
-            results_dict.update({param + f"_{channel}": (result[param].value, result[param].stderr)
+            results_dict.update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
                                  for param in self.DERIVED_PARAMETERS})
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(channel) for key in keys]
             f = np.linspace(loop.f[loop.mask].min(), loop.f[loop.mask].max(), 10 * loop.f[loop.mask].size)
-            z_guess = mc.models.S21.model(guess, f) - (guess['gamma'] + 1j * guess['delta'])
-            z_fit = mc.models.S21.model(result, f) - (result['gamma'] + 1j * result['delta'])
+            z_guess = mc.models.S21.model(guess, f) - loop.offset_calibration.mean()
+            z_fit = mc.models.S21.model(result, f) - loop.offset_calibration.mean()
             values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
                       20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
             results_dict.update({key: value for key, value in zip(keys, values)})
@@ -1058,15 +1077,74 @@ class Fit(FitProcedure):
                 config = yaml.load(f, Loader=yaml.Loader)
             config['guess'] = config.get('guess', {})
             config['result'] = config.get('result', {})
-            config['guess'].update({param + f"_{channel}": guess[param].value for param in self.FIT_PARAMETERS})
-            config['guess'].update({param + f"_{channel}": guess[param].value for param in self.DERIVED_PARAMETERS})
-            config['result'].update({param + f"_{channel}": (result[param].value, result[param].stderr)
+            config['guess'].update({param + f"_{channel}": float(guess[param].value) for param in self.FIT_PARAMETERS})
+            config['guess'].update({param + f"_{channel}": float(guess[param].value)
+                                    for param in self.DERIVED_PARAMETERS})
+            config['result'].update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
                                      for param in self.FIT_PARAMETERS})
-            config['result'].update({param + f"_{channel}": (result[param].value, result[param].stderr)
+            config['result'].update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
                                      for param in self.DERIVED_PARAMETERS})
             with open(os.path.join(self.directory, self.file_name()), "w") as f:
                 yaml.dump(config, f)
             self.emit("progress", 100 * (i + 1) / len(self.CHANNELS))
+
+
+    def shutdown(self):
+        if self.clear_fits:
+            self.fitted_resonators.clear()
+        log.info("Finished fit procedure")
+
+    def guess(self, loop):
+        # Create the guess.
+        # The 'nonlinear_resonance' and 'quadratic_phase' options change the default guess.
+        log.info(f"Creating the guess for {loop.name}.")
+        guess = mc.models.S21.guess(loop.z[loop.mask], loop.f[loop.mask],
+                                    imbalance=loop.imbalance_calibration,
+                                    offset=loop.offset_calibration,
+                                    nonlinear_resonance=True if self.a[0] else False,
+                                    quadratic_phase=True if self.phase2[0] else False)
+
+        # Overload the guess with GUI options if specified.
+        for param in self.FIT_PARAMETERS:
+            options = getattr(self, param)
+            if param == "a":  # "a_sqrt" is really being varied not "a"
+                param = "a_sqrt"
+                for index, option in enumerate(options[1:]):
+                    if not np.isnan(option) and not np.isinf(option):
+                        options[index + 1] = np.sqrt(option)
+            guess[param].set(vary=bool(options[0]))  # vary
+            if not np.isnan(options[1]):  # value
+                guess[param].set(value=float(options[1]))
+            if not np.isnan(options[2]):  # min
+                guess[param].set(min=float(options[2]))
+            if not np.isnan(options[3]):  # max
+                guess[param].set(max=float(options[3]))
+
+        return guess
+
+    def find_loop(self, sweep, channel):
+        for resonator in sweep.resonators:
+            for loop in resonator.loops:
+                if os.path.basename(self.sweep_file) in loop.name and f"'channel': {channel - 1}" in loop.name:
+                    break
+            else:
+                continue  # only executed if the inner for loop did not break
+            break  # only executed if the inner for loop did break
+        else:
+            # only exected if the for loops did not break
+            raise ValueError(f"Sweep {self.config_file} does not contain Loop "
+                             f"{os.path.basename(self.sweep_file)} and channel {channel - 1}")
+        return loop, resonator
+
+    def mask_loop(self, loop, i):
+        # Mask the data.
+        if self.ranges is not None:
+            f_min = loop.f.min()
+            f_max = loop.f.max()
+            f_med = np.median(loop.f)
+            lower = self.ranges[2 * i] / 100 * (f_med - f_min) + f_min
+            upper = (1 - self.ranges[2 * i + 1] / 100) * (f_max - f_med) + f_med
+            loop.mask_from_bounds(lower=lower, upper=upper)
 
     @classmethod
     def load(cls, file_path):
@@ -1094,7 +1172,7 @@ class Fit1(Fit):
                     't1', 't1_guess', 't1_fit', 'channel1', "sweep_file", "filename"]
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
-    ranges = VectorParameter("Frequency ranges", default=[np.nan, np.nan], length=2, ui_class=RangeInput)
+    ranges = VectorParameter("Trim frequency ranges", default=[0, 0], length=2, ui_class=RangeInput)
 
     def startup(self):
         if self.should_stop():
@@ -1119,12 +1197,15 @@ class Fit1(Fit):
         results_dict.update(config['result'])
         keys = ["i1_guess", "i1_fit", "q1_guess", "q1_fit", "f1_guess", "f1_fit", "t1_guess", "t1_fit"]
         f = np.array(sweep_result.data["f"])
-        mask = np.ones_like(f, dtype=bool)
+        f_min = f.min()
+        f_max = f.max()
+        f_med = np.median(f)
         f_range = config['parameters']['ranges']
-        if not np.isnan(f_range[0]):
-            mask = mask & (f >= f_range[0])
-        if not np.isnan(f_range[1]):
-            mask = mask & (f <= f_range[1])
+        mask = np.ones_like(f, dtype=bool)
+        if not np.isnan(f_range[2 * i - 2]):
+            mask = mask & (f >= f_range[2 * i - 2] / 100 * (f_med - f_min) + f_min)
+        if not np.isnan(f_range[2 * i - 1]):
+            mask = mask & (f <= (1 - f_range[2 * i - 1] / 100) * (f_max - f_med) + f_med)
         f = f[mask]
         f = np.linspace(f.min(), f.max(), 10 * f.size)
         # create lmfit parameters objects
@@ -1153,7 +1234,7 @@ class Fit2(Fit):
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.FIT_PARAMETERS])
     DATA_COLUMNS.extend([param + f"_{channel}" for channel in CHANNELS for param in Fit.DERIVED_PARAMETERS])
     ui = RangeInput.set_labels(["Channel 1:", "Channel 2:"])  # class factory
-    ranges = VectorParameter("Frequency ranges", default=[np.nan, np.nan, np.nan, np.nan], length=4, ui_class=ui)
+    ranges = VectorParameter("Trim frequency ranges", default=[0, 0, 0, 0], length=4, ui_class=ui)
     ui = BooleanListInput.set_labels(["Fit Channel 1", "Fit Channel 2"])  # class factory
     do_fit = VectorParameter("", default=[1, 1], length=2, ui_class=ui)
 
@@ -1193,12 +1274,15 @@ class Fit2(Fit):
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(i) for key in keys]
             f = np.array(sweep_result.data[f'f{i}'])
-            mask = np.ones_like(f, dtype=bool)
+            f_min = f.min()
+            f_max = f.max()
+            f_med = np.median(f)
             f_range = config['parameters']['ranges']
+            mask = np.ones_like(f, dtype=bool)
             if not np.isnan(f_range[2 * i - 2]):
-                mask = mask & (f >= f_range[2 * i - 2])
+                mask = mask & (f >= f_range[2 * i - 2] / 100 * (f_med - f_min) + f_min)
             if not np.isnan(f_range[2 * i - 1]):
-                mask = mask & (f <= f_range[2 * i - 1])
+                mask = mask & (f <= (1 - f_range[2 * i - 1] / 100) * (f_max - f_med) + f_med)
             f = f[mask]
             f = np.linspace(f.min(), f.max(), 10 * f.size)
             # create lmfit parameters objects
