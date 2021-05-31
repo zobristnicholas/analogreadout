@@ -73,6 +73,7 @@ class Sweep(SweepBaseProcedure):
             log.warning(STOP_WARNING.format(self.__class__.__name__))
             return
 
+        self.status_bar.value = "Calibrating IQ mixer offset"
         # initialize the system in the right mode
         # TODO: properly handle nan frequency input by shutting off the corresponding synthesizer
         adc_atten = max(0, self.total_atten - self.attenuation)
@@ -82,7 +83,6 @@ class Sweep(SweepBaseProcedure):
             self.daq.initialize(self.freqs[:, 0], dac_atten=np.inf, adc_atten=adc_atten,
                                 sample_rate=self.sample_rate * 1e6, n_samples=25 * self.n_samples)
         # loop through the frequencies and take data
-        self.status_bar.value = "Calibrating IQ mixer offset"
         for index, _ in enumerate(self.f_offset[0, :]):
             self.daq.dac.set_frequency(self.f_offset[:, index])
             self.z_offset[:, index] = self.daq.adc.take_iq_point()
