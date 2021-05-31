@@ -23,6 +23,13 @@ DB0 = 10 * np.log10(1e-3 / 50)
 STOP_WARNING = "Caught the stop flag in the '{}' procedure"
 
 
+def get_fit_result(result, name):
+    if result.errorbars:
+        return [float(result.params[name].value), float(result.params[name].stderr)]
+    else:
+        return [float(result.params[name].value), 0.0]
+
+
 def make_procedure_from_file(cls, npz_file):
     # load in the data
     metadata = npz_file['metadata'].item()
@@ -1052,18 +1059,18 @@ class Fit(FitProcedure):
                 mc.experiments.basic_fit(loop, guess=guess, fit_type='lmfit')
                 log.info(f"lmfit report for {loop.name}: {loop.lmfit_results['best']['label']}:\n"
                          + loop.fit_report(label='best', fit_type='lmfit', return_string=True))
-            result = loop.lmfit_results['best']['result'].params
+            result = loop.lmfit_results['best']['result']
 
             # Emit the results to GUI.
-            results_dict = {param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
+            results_dict = {param + f"_{channel}": get_fit_result(result, param)
                             for param in self.FIT_PARAMETERS}
-            results_dict.update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
+            results_dict.update({param + f"_{channel}": get_fit_result(result, param)
                                  for param in self.DERIVED_PARAMETERS})
             keys = ["i{}_guess", "i{}_fit", "q{}_guess", "q{}_fit", "f{}_guess", "f{}_fit", "t{}_guess", "t{}_fit"]
             keys = [key.format(channel) for key in keys]
             f = np.linspace(loop.f[loop.mask].min(), loop.f[loop.mask].max(), 10 * loop.f[loop.mask].size)
             z_guess = mc.models.S21.model(guess, f) - loop.offset_calibration.mean()
-            z_fit = mc.models.S21.model(result, f) - loop.offset_calibration.mean()
+            z_fit = mc.models.S21.model(result.params, f) - loop.offset_calibration.mean()
             values = [z_guess.real, z_fit.real, z_guess.imag, z_fit.imag, f, f,
                       20 * np.log10(np.abs(z_guess)) - DB0, 20 * np.log10(np.abs(z_fit)) - DB0]
             results_dict.update({key: value for key, value in zip(keys, values)})
@@ -1080,9 +1087,9 @@ class Fit(FitProcedure):
             config['guess'].update({param + f"_{channel}": float(guess[param].value) for param in self.FIT_PARAMETERS})
             config['guess'].update({param + f"_{channel}": float(guess[param].value)
                                     for param in self.DERIVED_PARAMETERS})
-            config['result'].update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
+            config['result'].update({param + f"_{channel}": get_fit_result(result, param)
                                      for param in self.FIT_PARAMETERS})
-            config['result'].update({param + f"_{channel}": [float(result[param].value), float(result[param].stderr)]
+            config['result'].update({param + f"_{channel}": get_fit_result(result, param)
                                      for param in self.DERIVED_PARAMETERS})
             with open(os.path.join(self.directory, self.file_name()), "w") as f:
                 yaml.dump(config, f)
@@ -1187,14 +1194,14 @@ class Fit1(Fit):
 
     @classmethod
     def make_results_dict(cls, config):
-        result = Sweep1.load(config['parameters']['sweep_file'])
-        result_dict = {'i1_loop': result.data['i'],
-                       'q1_loop': result.data['q'],
-                       'f1': result.data['f'],
-                       't1': result.data['t'],
+        sweep_result = Sweep1.load(config['parameters']['sweep_file'])
+        result_dict = {'i1_loop': sweep_result.data['i'],
+                       'q1_loop': sweep_result.data['q'],
+                       'f1': sweep_result.data['f'],
+                       't1': sweep_result.data['t'],
                        'channel1': 1,
                        "sweep_file": os.path.basename(config['parameters']['sweep_file'])}
-        results_dict.update(config['result'])
+        result_dict.update(config['result'])
         keys = ["i1_guess", "i1_fit", "q1_guess", "q1_fit", "f1_guess", "f1_fit", "t1_guess", "t1_fit"]
         f = np.array(sweep_result.data["f"])
         f_min = f.min()
@@ -1202,10 +1209,10 @@ class Fit1(Fit):
         f_med = np.median(f)
         f_range = config['parameters']['ranges']
         mask = np.ones_like(f, dtype=bool)
-        if not np.isnan(f_range[2 * i - 2]):
-            mask = mask & (f >= f_range[2 * i - 2] / 100 * (f_med - f_min) + f_min)
-        if not np.isnan(f_range[2 * i - 1]):
-            mask = mask & (f <= (1 - f_range[2 * i - 1] / 100) * (f_max - f_med) + f_med)
+        if not np.isnan(f_range[0]):
+            mask = mask & (f >= f_range[0] / 100 * (f_med - f_min) + f_min)
+        if not np.isnan(f_range[1]):
+            mask = mask & (f <= (1 - f_range[1] / 100) * (f_max - f_med) + f_med)
         f = f[mask]
         f = np.linspace(f.min(), f.max(), 10 * f.size)
         # create lmfit parameters objects
