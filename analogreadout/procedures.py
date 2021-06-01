@@ -642,6 +642,7 @@ class Pulse(MKIDProcedure):
     status_bar = Indicator("Status")
     
     count_rates = []
+    pulse_count = 0
 
     def execute(self):
         if self.should_stop():
@@ -673,8 +674,8 @@ class Pulse(MKIDProcedure):
 
         # initialize the system in the right mode
         self.status_bar.value = "Computing noise level"
-        self.daq.dac_atten.initialize(self.attenuation)
         self.daq.adc.initialize(sample_rate=self.sample_rate * 1e6, n_samples=n_samples, n_trace=self.n_trace)
+        self.daq.dac_atten.initialize(self.attenuation)
 
         data = self.daq.adc.take_noise_data(1)
         sigma = np.zeros(data.shape[0], dtype=[('I', np.float64), ('Q', np.float64)])
@@ -684,28 +685,29 @@ class Pulse(MKIDProcedure):
         # take the data
         self.status_bar.value = "Taking pulse data"
         self.daq.laser.set_state(self.laser)
-        n_pulses = 0
+        self.pulse_count = 0
         amplitudes = np.zeros((data.shape[0], self.n_pulses))
-        while n_pulses < self.n_pulses:
+        while self.pulse_count < self.n_pulses:
             # channel, n_pulses, n_trace ['I' or 'Q']
             data, triggers = self.daq.adc.take_pulse_data(sigma, n_sigma=self.sigma, dead_time=self.dead_time)
 
             new_pulses = data.shape[1]
-            space_left = self.n_pulses - n_pulses
+            space_left = self.n_pulses - self.pulse_count
 
             if isinstance(self.pulses, np.memmap):  # reload the mem-map so that we don't keep all the pulses in RAM
                 self.pulses = np.lib.format.open_memmap(self.pulses.filename, mode="r+")
-            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['I'] = data[:, :space_left, :]['I']
-            self.pulses[:, n_pulses: new_pulses + n_pulses, :]['Q'] = data[:, :space_left, :]['Q']
+            self.pulses[:, self.pulse_count: new_pulses + self.pulse_count, :]['I'] = data[:, :space_left, :]['I']
+            self.pulses[:, self.pulse_count: new_pulses + self.pulse_count, :]['Q'] = data[:, :space_left, :]['Q']
             if isinstance(self.pulses, np.memmap):  # ensure that the data is flushed to disk
                 self.pulses.flush()
 
             responses_i = data[:, :space_left, :]['I'] - np.median(data[:, :space_left, :]['I'], axis=2, keepdims=True)
             responses_q = data[:, :space_left, :]['Q'] - np.median(data[:, :space_left, :]['Q'], axis=2, keepdims=True)
-            amplitudes[:, n_pulses:n_pulses + new_pulses] = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
+            amplitudes[:, self.pulse_count:self.pulse_count + new_pulses] = np.max(np.sqrt(responses_i**2
+                                                                                           + responses_q**2), axis=2)
 
-            n_pulses += new_pulses
-            self.emit("progress", n_pulses / self.n_pulses * 100)
+            self.pulse_count += new_pulses
+            self.emit("progress", self.pulse_count / self.n_pulses * 100)
 
             for index, count_rate in enumerate(self.count_rates):
                 count_rate.value = np.sum(triggers[index, :]) / (n_samples / (self.sample_rate * 1e6))
@@ -742,6 +744,34 @@ class Pulse(MKIDProcedure):
     def clean_up(self):
         self.status_bar.value = ""
         self.freqs = None
+        # If we aborted early and are using a memmap, truncate the file to avoid saving a large number of zeros to disk.
+        if isinstance(self.pulses, np.memmap) and self.pulse_count < self.n_pulses:
+            log.info("Truncating pulse file.")
+            filename = self.pulses.filename
+            shape = self.pulses.shape
+            # TODO: Closing the memmap is needed to rename the file.
+            #  Use the public API when numpy makes it available.
+            self.pulses._mmap.close()
+            try:
+                os.remove(filename + ".bkp")
+            except FileNotFoundError:
+                pass
+            os.rename(filename, filename + ".bkp")
+            old = np.lib.format.open_memmap(filename + ".bkp", mode="r+")
+            new = np.lib.format.open_memmap(filename, mode="w+", shape=(shape[0], self.pulse_count, shape[2]),
+                                            dtype=[('I', np.float16), ('Q', np.float16)])
+            try:
+                new[:, :, :] = old[:, :self.pulse_count, :]
+            except MemoryError:  # If we can't allocate the memory, revert to the backup file
+                old._mmap.close()
+                new._mmap.close()
+                os.remove(filename)
+                os.rename(filename + ".bkp", filename)
+            else:
+                old._mmap.close()
+                new._mmap.close()
+                os.remove(filename + ".bkp")
+            log.info("Finished truncating the pulse file.")
         self.pulses = None
         self.offset = None
         self.metadata = {"parameters": {}}
@@ -838,13 +868,18 @@ class Pulse1(Pulse):
             psd = None
             freqs = None
         result = Sweep1.load(npz_file['metadata'].item()['parameters']['sweep_file'])
-        responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
-        amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
-        bins, counts = np.histogram(amplitudes[amplitudes != 0], bins='auto')
+        if npz_file['pulses'].dtype.kind in ["U", "S"]:
+            pulses = np.lib.format.open_memmap(npz_file['pulses'].item(), mode="r+")
+        else:
+            pulses = npz_file['pulses']
+        responses_i = pulses['I'] - np.median(pulses['I'], axis=2, keepdims=True)
+        responses_q = pulses['Q'] - np.median(pulses['Q'], axis=2, keepdims=True)
+        amplitudes = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
+        counts, bins = np.histogram(amplitudes[amplitudes != 0], bins='auto', density=True)
         result_dict = {'i_loop': result.data['i'],
                        'q_loop': result.data['q'],
-                       'i': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
-                       'q': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0],
+                       'i': pulses['I'][0, -1, :] - npz_file['zero']["I"][0],
+                       'q': pulses['Q'][0, -1, :] - npz_file['zero']["Q"][0],
                        'hist_x': bins,
                        'hist_y': counts}
         if psd is not None and freqs is not None:
@@ -937,17 +972,22 @@ class Pulse2(Pulse):
         except FileNotFoundError:
             psd = None
             freqs = None
-        responses = np.sqrt(npz_file['pulses']['I']**2 + npz_file['pulses']['Q']**2)
-        amplitudes = (np.max(responses, axis=2) - np.median(responses, axis=2))
+        if npz_file['pulses'].dtype.kind in ["U", "S"]:
+            pulses = np.load(npz_file['pulses'].item())
+        else:
+            pulses = npz_file['pulses']
+        responses_i = pulses['I'] - np.median(pulses['I'], axis=2, keepdims=True)
+        responses_q = pulses['Q'] - np.median(pulses['Q'], axis=2, keepdims=True)
+        amplitudes = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
         result = Sweep2.load(npz_file['metadata'].item()['parameters']['sweep_file'])
         result_dict = {'i1_loop': result.data['i1'],
                        'q1_loop': result.data['q1'],
-                       'i1': npz_file['pulses']['I'][0, 0, :] - npz_file['offset']["I"][0],
-                       'q1': npz_file['pulses']['Q'][0, 0, :] - npz_file['offset']["Q"][0],
+                       'i1': pulses['I'][0, 0, :] - npz_file['zero']["I"][0],
+                       'q1': pulses['Q'][0, 0, :] - npz_file['zero']["Q"][0],
                        'i2_loop': result.data['i2'],
                        'q2_loop': result.data['q2'],
-                       'i2': npz_file['pulses']['I'][1, 0, :] - npz_file['offset']["I"][1],
-                       'q2': npz_file['pulses']['Q'][1, 0, :] - npz_file['offset']["Q"][1],
+                       'i2': pulses['I'][1, 0, :] - npz_file['zero']["I"][1],
+                       'q2': pulses['Q'][1, 0, :] - npz_file['zero']["Q"][1],
                        'peaks1': amplitudes[0],
                        'peaks2': amplitudes[1]}
         if psd is not None and freqs is not None:
