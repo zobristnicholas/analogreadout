@@ -26,6 +26,7 @@ class Weinschel83102042F:
     def initialize(self, attenuation):
         self.reset()
         self.set_attenuation(attenuation)
+        sleep(5)
 
     def set_attenuation(self, attenuation):
         # check for step size compatibility
