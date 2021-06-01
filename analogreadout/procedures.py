@@ -1036,9 +1036,9 @@ class Fit(FitProcedure):
                                       mc.experiments.linear_fit)
                     n_fits = len(resonator.loops) * (len(extra_fits) * 2 + 1)
 
-                    class Progress():
-                        def __init__(self):
-                            self.index = 0
+                    class Progress:
+                        def __init__(s):
+                            s.index = 0
 
                         def __call__(s):
                             s.index += 1
@@ -1104,12 +1104,15 @@ class Fit(FitProcedure):
     def guess(self, loop):
         # Create the guess.
         # The 'nonlinear_resonance' and 'quadratic_phase' options change the default guess.
+        # 'alpha' and 'beta' must be set correctly for the guess to work. They over-ride the imbalance calibration.
         log.info(f"Creating the guess for {loop.name}.")
         guess = mc.models.S21.guess(loop.z[loop.mask], loop.f[loop.mask],
                                     imbalance=loop.imbalance_calibration,
                                     offset=loop.offset_calibration,
                                     nonlinear_resonance=True if self.a[0] else False,
-                                    quadratic_phase=True if self.phase2[0] else False)
+                                    quadratic_phase=True if self.phase2[0] else False,
+                                    alpha={'value': float(self.alpha[1])} if not np.isnan(self.alpha[1]) else None,
+                                    beta={'value': float(self.beta[1])} if not np.isnan(self.beta[1]) else None)
 
         # Overload the guess with GUI options if specified.
         for param in self.FIT_PARAMETERS:
