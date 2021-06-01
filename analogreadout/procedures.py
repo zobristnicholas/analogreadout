@@ -296,7 +296,7 @@ class Sweep1(Sweep):
                   'attenuation': self.attenuation,
                   'sample_rate': self.sample_rate,
                   'total_atten': self.total_atten,
-                  'frequency': self.frequency,
+                  'frequency': self.noise_bias[0],
                   'time': self.noise[1],
                   'n_integrations': self.noise[2],
                   'off_res': bool(self.noise[3]),
