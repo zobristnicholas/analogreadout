@@ -8,6 +8,10 @@ log.addHandler(logging.NullHandler())
 
 
 class MultipleSignalGenerators(list):
+    CONTROL = [["Reset", "reset", []],
+               ["Output on", "turn_on_output", []],
+               ["Output off", "turn_off_output", []]]
+
     def __init__(self, classes, arguments):
         super().__init__()
         # make a list of classes if only one class was given
@@ -17,10 +21,17 @@ class MultipleSignalGenerators(list):
         for index, argument in enumerate(arguments):
             self.append(globals()[classes[index]](*argument))
 
+        freq_args, power_args = [], []
+        for index in range(len(classes)):
+            freq_args.append([float, f"#{index + 1}:  ", " GHz", 9])
+            power_args.append([float, f"#{index + 1}:  ", " dBm", 3, 30, -20])
+        self.CONTROL.append(["Set Frequency", "set_frequency", freq_args])
+        self.CONTROL.append(["Set Power", "set_power", power_args])
+
     def __getattr__(self, name):
         # if it's an attribute return a list of attributes
         if not callable(getattr(self[0], name)):
-            return [getattr(self[0], name), getattr(self[1], name)]
+            return [getattr(item, name) for item in self]
 
         # if not, return a list of the method outputs for each object
         def new_method(*args, **kwargs):
@@ -53,6 +64,11 @@ class AnritsuABC:
     FREQUENCY_SWITCH = 0.06
     POWER_SWITCH = 0.04
     OUTPUT_SWITCH = 0.2
+    CONTROL = [["Reset", "reset", []],
+               ["Output on", "turn_on_output", []],
+               ["Output off", "turn_off_output", []],
+               ["Set Frequency", "set_frequency", [[float, "", " GHz", 9]]],
+               ["Set Power", "set_power", [[float, "", " dBm", 3, 30, -20]]]]
 
     def __init__(self, address):
         try:
@@ -96,10 +112,10 @@ class AnritsuABC:
         self.session.write(*args, **kwargs)
 
     def read(self, *args, **kwargs):
-        return self.session.read(*args, **kwargs)
+        return self.session.read(*args, **kwargs).strip()
 
     def query(self, *args, **kwargs):
-        return self.session.query(*args, **kwargs)
+        return self.session.query(*args, **kwargs).strip()
 
     def query_ascii_values(self, *args, **kwargs):
         return self.session.query_ascii_values(*args, **kwargs)
@@ -136,6 +152,12 @@ class AnritsuMG37022A(AnritsuABC):
     def turn_off_output(self):
         self.write("OUTPut: OFF")
         sleep(self.OUTPUT_SWITCH)
+
+    def get_state(self):
+        state = {"frequency": float(self.query(":Source:FREQuency?")),
+                 "power": float(self.query(":Source:POWer?")),
+                 "output_state": bool(int(self.query(":OUTPut:STATe?")))}
+        return state
 
 
 class AnritsuMG3692B(AnritsuABC):

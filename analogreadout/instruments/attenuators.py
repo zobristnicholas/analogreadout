@@ -11,6 +11,8 @@ log.addHandler(logging.NullHandler())
 class Weinschel83102042F:
     MAX_ATTEN = 62
     STEP = 2
+    CONTROL = [["Reset", "reset", []],
+               ["Set Attenuation", "set_attenuation", [[float, "", " dB", 0, 124]]]]
 
     def __init__(self, address, channels):
         try:
