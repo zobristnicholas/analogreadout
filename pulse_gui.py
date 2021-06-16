@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import logging
 import numpy as np
 from datetime import datetime
 from collections import deque
@@ -16,6 +17,9 @@ temperature_updater = None
 time_stamps = deque(maxlen=int(24 * 60))  # one day of data if refresh time is every minute
 temperatures = deque(maxlen=int(24 * 60))
 refresh_time = 60  # refresh temperature every minute
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class Updater(Thread):
@@ -77,12 +81,16 @@ if __name__ == '__main__':
         config = yaml.load(f, Loader=yaml.Loader)
 
     # Create the window.
-    app = QtGui.QApplication(sys.argv)
-    # TODO: add pulse image for icon
-    # app.setWindowIcon(get_image_icon("pulse.png"))
-    window = pulse_window(config)
-    window.activateWindow()
-    window.show()
-    ex = app.exec_()
-    del app  # prevents unwanted segfault on closing the window
-    sys.exit(ex)
+    try:
+        app = QtGui.QApplication(sys.argv)
+        # TODO: add pulse image for icon
+        # app.setWindowIcon(get_image_icon("pulse.png"))
+        window = pulse_window(config)
+        window.activateWindow()
+        window.show()
+        ex = app.exec_()
+        del app  # prevents unwanted segfault on closing the window
+        sys.exit(ex)
+    except Exception as error:
+        log.exception(error)
+        raise error

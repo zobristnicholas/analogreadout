@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import logging
 import numpy as np
 from functools import partialmethod
 from pymeasure.display.Qt import QtGui
@@ -9,6 +10,9 @@ from mkidplotter import SweepGUI, get_image_icon, TimePlotIndicator
          
 import fit_gui
 import pulse_gui
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 def open_pulse_gui(self, experiment, bias=None, configuration=None):
@@ -98,11 +102,15 @@ if __name__ == '__main__':
         config = yaml.load(f, Loader=yaml.Loader)
 
     # Create the window.
-    app = QtGui.QApplication(sys.argv)
-    app.setWindowIcon(get_image_icon("loop.png"))
-    window = sweep_window(config)
-    window.activateWindow()
-    window.show()
-    ex = app.exec_()
-    del app  # prevents unwanted segfault on closing the window
-    sys.exit(ex)
+    try:
+        app = QtGui.QApplication(sys.argv)
+        app.setWindowIcon(get_image_icon("loop.png"))
+        window = sweep_window(config)
+        window.activateWindow()
+        window.show()
+        ex = app.exec_()
+        del app  # prevents unwanted segfault on closing the window
+        sys.exit(ex)
+    except Exception as error:
+        log.exception(error)
+        raise error

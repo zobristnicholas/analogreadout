@@ -6,6 +6,9 @@ from datetime import datetime
 from pymeasure.display.Qt import QtGui
 from mkidplotter import FitGUI
 
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
+
 
 def setup_logging():
     log = logging.getLogger()
@@ -19,6 +22,7 @@ def setup_logging():
     log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%m/%d/%Y %I:%M:%S %p')
     handler.setFormatter(log_format)
     log.addHandler(handler)
+    logging.getLogger("lakeshore").setLevel(logging.WARNING)
     return log
 
 
@@ -42,11 +46,15 @@ if __name__ == '__main__':
         config = yaml.load(f, Loader=yaml.Loader)
 
     # Create the window.
-    app = QtGui.QApplication(sys.argv)
-    # app.setWindowIcon(get_image_icon("fit.png"))
-    window = fit_window(config)
-    window.activateWindow()
-    window.show()
-    ex = app.exec_()
-    del app  # prevents unwanted segfault on closing the window
-    sys.exit(ex)
+    try:
+        app = QtGui.QApplication(sys.argv)
+        # app.setWindowIcon(get_image_icon("fit.png"))
+        window = fit_window(config)
+        window.activateWindow()
+        window.show()
+        ex = app.exec_()
+        del app  # prevents unwanted segfault on closing the window
+        sys.exit(ex)
+    except Exception as error:
+        log.exception(error)
+        raise error
