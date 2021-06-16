@@ -4,13 +4,12 @@ import logging
 import importlib
 import numpy as np
 import pyvisa as visa
-import yaml
-from pyvisa import constants
 from time import sleep
+from pyvisa import constants
 from datetime import datetime
 from pymeasure.experiment import Parameter
 from analogreadout.instruments.sources import NotASource
-from analogreadout.instruments.sensors import NotASensor
+from analogreadout.instruments.amplifiers import NotAnAmplifier
 from analogreadout.instruments.attenuators import NotAnAttenuator
 from analogreadout.instruments.resistance_bridges import NotAThermometer
 
@@ -91,7 +90,7 @@ class DAQ:
                 self.primary_amplifier = get_instrument(value)
         for key, value in self.config['sources'].items():
             if key == "laser":
-                self.laser = get_instrument(value)
+                self.source = get_instrument(value)
         # if the instrument wasn't initialized set it to a dummy NotAnInstrument class
         if self.dac_atten is None:
             self.dac_atten = NotAnAttenuator("DAC")
@@ -100,9 +99,9 @@ class DAQ:
         if self.thermometer is None:
             self.thermometer = NotAThermometer()
         if self.primary_amplifier is None:
-            self.primary_amplifier = NotASensor("Primary Amplifier")
-        if self.laser is None:
-            self.laser = NotASource("Laser Box")
+            self.primary_amplifier = NotAnAmplifier("Primary Amplifier")
+        if self.source is None:
+            self.source = NotASource("Laser Box")
 
         # Thermometer should be initialized immediately since it runs in the background
         self.thermometer.initialize()
@@ -195,8 +194,7 @@ class DAQ:
         self.dac.initialize(frequency, power)
         self.adc.initialize(sample_rate=sample_rate, n_samples=n_samples, channels=channels, n_trace=n_trace)
         self.thermometer.initialize()
-        self.primary_amplifier.initialize()
-        self.laser.initialize(laser_state)
+        self.source.initialize(laser_state)
         sleep(1)
 
     def close(self):
@@ -250,5 +248,5 @@ class DAQ:
                        'resistance': (np.mean(resistances), np.std(resistances))}
             
         state = {datetime.now().strftime('%Y%m%d_%H%M%S'):
-                 {"thermometer": thermometer, "primary_amplifier": self.primary_amplifier.read_value()}}
+                 {"thermometer": thermometer, "primary_amplifier": self.primary_amplifier.get_state()}}
         return state

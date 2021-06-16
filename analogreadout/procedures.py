@@ -6,7 +6,6 @@ import warnings
 import lmfit as lm
 import numpy as np
 import scipy.signal as sig
-from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
                          Indicator, FloatIndicator, FileParameter, FitProcedure, FitInput, RangeInput)
@@ -82,7 +81,6 @@ class Sweep(SweepBaseProcedure):
 
         self.status_bar.value = "Calibrating IQ mixer offset"
         # initialize the system in the right mode
-        # TODO: properly handle nan frequency input by shutting off the corresponding synthesizer
         adc_atten = max(0, self.total_atten - self.attenuation)
         with warnings.catch_warnings():
             # ignoring warnings for setting infinite attenuation
@@ -684,7 +682,7 @@ class Pulse(MKIDProcedure):
 
         # take the data
         self.status_bar.value = "Taking pulse data"
-        self.daq.laser.set_state(self.laser)
+        self.daq.source.set_state(self.laser)
         self.pulse_count = 0
         amplitudes = np.zeros((data.shape[0], self.n_pulses))
         while self.pulse_count < self.n_pulses:
@@ -726,7 +724,7 @@ class Pulse(MKIDProcedure):
         # zero out count rate indicators
         for index, count_rate in enumerate(self.count_rates):
             count_rate.value = 0
-        self.daq.laser.set_state(self.daq.laser.OFF_STATE)  # turn laser off
+        self.daq.source.set_state(self.daq.source.OFF_STATE)  # turn laser off
         if self.pulses is not None:
             self.save()  # save data even if the procedure was aborted
         self.clean_up()  # delete references to data so that memory isn't hogged
