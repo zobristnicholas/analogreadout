@@ -77,7 +77,7 @@ class ParaAmpThreeWaveUCSB:
     def set_pump_power(self, power):
         sleep_time = 0.1
         # take 2 minutes to change the power by 30 dB
-        n_steps = int(120 / 30 * (power - self.pump_power) / sleep_time)
+        n_steps = int(120 / 30 * np.abs(power - self.pump_power) / sleep_time)
         x = np.linspace(0, 1, n_steps)
         powers = x * (power - self.pump_power) + self.pump_power
         for p in powers:  # slow ramp
