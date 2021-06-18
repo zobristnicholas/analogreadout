@@ -1,4 +1,5 @@
 import logging
+import threading
 import lakeshore
 import numpy as np
 from time import sleep
@@ -22,22 +23,43 @@ class ParaAmpThreeWaveUCSB:
                 [[float, "", " dBm", 3, 30, -20]]],
                ["Set Current", "set_bias_current", [[float, "", " mA", 3]]]]
 
+    WAIT = 0.1
+
     def __init__(self, pump_address, bias_address, bias_resistor=1e3):
         self.pump = AnritsuMG37022A(pump_address)
         self.bias = lakeshore.Model155(com_port=bias_address)
         self.bias_resistor = float(bias_resistor)
 
+        # Create a thread that monitors the pump to handle if it goes normal.
+        self.normal = False  # flag set by thread if the pump goes normal
+        self.thread = threading.Thread(target=self._monitor, daemon=True)
+        self.thread.start()
+
+        # Get the current pump state.
         state = self.get_state()
         self.pump_power = state['pump']['power']
         self.bias_current = state['bias']['amplitude']
 
+        # Log the para-amp connection information.
         bias_name = "{:s} {:s}, s/n: {:s}, version: {:s}".format(
             *self.bias.query("*IDN?").strip().split(','))
         pump_name = "{:s} {:s}, s/n: {:s}, version: {:s}".format(
-            *self.pump.query("*IDN?").strip().split(',')
-        )
+            *self.pump.query("*IDN?").strip().split(','))
         log.info("Connected to UCSB para-amp controller. "
                  f"Pump: {pump_name} :: Bias: {bias_name}")
+
+    def _monitor(self):
+        while True:
+            sleep(1)
+            if self.is_normal():
+                self.recover_from_normal()
+                self.normal = True
+                log.warning("The para-amp went normal and was shut off "
+                            "automatically.")
+                log.debug("The para-amp normal flag was set.")
+                sleep(10)
+            self.normal = False
+            log.debug("The para-amp normal flag was unset.")
 
     def initialize(self):
         # turn everything on to its lowest power setting
@@ -67,12 +89,15 @@ class ParaAmpThreeWaveUCSB:
     def reset(self):
         self.pump.reset()
         self.bias.command("*RST")
+        sleep(self.WAIT)
 
     def turn_on_pump(self):
         self.pump.turn_on_output()
+        sleep(self.WAIT)
 
     def turn_off_pump(self):
         self.pump.turn_off_output()
+        sleep(self.WAIT)
 
     def set_pump_power(self, power):
         sleep_time = 0.1
@@ -85,46 +110,54 @@ class ParaAmpThreeWaveUCSB:
             sleep(sleep_time)
             if self.is_normal():
                 self.recover_from_normal()
+                log.warning("The para-amp went normal while setting the pump "
+                            "power and was shut off automatically.")
                 break
         else:
             self.pump_power = power  # did not go normal
 
     def set_pump_frequency(self, frequency):
+        # Get the state of the pump and bias power.
         state = self.get_state()
+        on = state['pump']['output_state'] and state['bias']['output_state']
 
         # If the pump frequency is changed with the pump and bias powered,
-        # the para-amp might go normal, so we turn everything off.
-        self.turn_off_pump()
-        self.turn_off_bias()
+        # the para-amp might go normal, so we turn the pump off.
+        if on:
+            self.turn_off_pump()
 
+        # Set the frequency.
         self.pump.set_frequency(frequency)
 
-        # return to previous state
-        if state['bias']['output_state']:
-            self.turn_on_bias()
-        if state['pump']['output_state']:
+        # Return to the previous state.
+        if on:
             self.turn_on_pump()
-            # check if we went normal if we turned the pump on.
             sleep(1)
             if self.is_normal():
                 self.recover_from_normal()
-                log.warning("Para-amp went normal")
+                log.warning("The para-amp went normal while setting the pump "
+                            "frequency and was shut off automatically.")
 
     def turn_on_bias(self):
         self.bias.enable_output()
+        sleep(self.WAIT)
 
     def turn_off_bias(self):
         self.bias.disable_output()
+        sleep(self.WAIT)
 
     def set_bias_current(self, current):
+        # Choose the smallest possible current range.
         ranges = ["100e-3", "10e-3", "1e-3", "100e-6", "10e-6", "1e-6"]
         difference = np.array([float(r) for r in ranges]) - current * 1e-3
         current_range = ranges[np.argmin(difference[difference > 0])]
         self.bias.set_current_range(current_range)
+
         # Limit the voltage to no more than 1% of the required value to reduce
         # unintentional para-amp heating.
         volts = min(max(current * 1e-3 * self.bias_resistor * 1.01, 1), 100)
         self.bias.set_current_mode_voltage_protection(volts)
+
         # The default lakeshore method turns the output on, but we don't want
         # to do that, so we send the relevant commands directly.
         self.bias.command("SOURCE:FUNCTION:MODE CURRENT")
@@ -133,9 +166,12 @@ class ParaAmpThreeWaveUCSB:
         self.bias_current = current
 
     def is_normal(self):
-        state = self.bias.query(
-            "SOURce:CURRent:SENSe:VOLTage:DC:PROTection:TRIPped?")
-        return bool(int(state))
+        if self.normal:
+            return True
+        else:
+            state = self.bias.query(
+                "SOURce:CURRent:SENSe:VOLTage:DC:PROTection:TRIPped?")
+            return bool(int(state))
 
     def recover_from_normal(self):
         self.turn_off_pump()
