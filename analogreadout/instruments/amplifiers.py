@@ -78,13 +78,17 @@ class ParaAmpThreeWaveUCSB:
         self.turn_on_bias()
         self.turn_on_pump()
 
-    def get_state(self):
-        bias_settings = self.bias.get_output_settings()
-        bias_settings['output_state'] = bool(int(
-            self.bias.query("OUTPut:STATe?")))
-        bias_settings['terminals'] = self.bias.query("ROUTe:TERMinals?")
-        bias_settings['amplitude'] *= 1e3  # to mA
-        return {'bias': bias_settings, 'pump': self.pump.get_state()}
+    def get_state(self, instruments=("pump", "bias")):
+        state = {}
+        if "bias" in instruments:
+            state['bias'] = self.bias.get_output_settings()
+            state['bias']['output_state'] = bool(int(
+                self.bias.query("OUTPut:STATe?")))
+            state['bias']['terminals'] = self.bias.query("ROUTe:TERMinals?")
+            state['bias']['amplitude'] *= 1e3  # to mA
+        if "pump" in instruments:
+            state["pump"] = self.pump.get_state()
+        return state
 
     def close(self):
         self.pump.close()
