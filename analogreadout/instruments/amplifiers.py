@@ -39,6 +39,10 @@ class ParaAmpThreeWaveUCSB:
         state = self.get_state()
         self.pump_power = state['pump']['power']
         self.bias_current = state['bias']['amplitude']
+        if state['bias']['mode'] != "CURRENT":
+            self.bias.command("SOURCE:FUNCTION:MODE CURRENT")
+        if state['bias']['output_shape'] != "DC":
+            self.bias.command("SOURCE:FUNCTION:SHAPE DC")
 
         # Log the para-amp connection information.
         bias_name = "{:s} {:s}, s/n: {:s}, version: {:s}".format(
@@ -160,8 +164,6 @@ class ParaAmpThreeWaveUCSB:
 
         # The default lakeshore method turns the output on, but we don't want
         # to do that, so we send the relevant commands directly.
-        self.bias.command("SOURCE:FUNCTION:MODE CURRENT")
-        self.bias.command("SOURCE:FUNCTION:SHAPE DC")
         self.bias.command("SOURCE:CURRENT:AMPLITUDE " + str(current * 1e-3))
         self.bias_current = current
 
