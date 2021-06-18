@@ -154,7 +154,7 @@ class ParaAmpThreeWaveUCSB:
         # Choose the smallest possible current range.
         ranges = ["100e-3", "10e-3", "1e-3", "100e-6", "10e-6", "1e-6"]
         difference = np.array([float(r) for r in ranges]) - current * 1e-3
-        current_range = ranges[np.argmin(difference[difference > 0])]
+        current_range = ranges[np.argmin(difference[difference >= 0])]
         self.bias.set_current_range(current_range)
 
         # Limit the voltage to no more than 1% of the required value to reduce
