@@ -1,6 +1,5 @@
 import os
 import sys
-import yaml
 import logging
 import numpy as np
 from functools import partialmethod
@@ -93,13 +92,8 @@ if __name__ == '__main__':
     fit_gui.setup_logging()
 
     # Open the configuration file.
-    file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
-    file_path = os.path.join(os.getcwd(), file_name)
-    if not os.path.isfile(file_path):  # check configurations folder
-        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
-    with open(file_path, "r") as f:
-        config = yaml.load(f, Loader=yaml.Loader)
+    config = fit_gui.get_config(sys.argv.pop(1)
+                                if len(sys.argv) > 1 else "ucsb")
 
     # Create the window.
     try:

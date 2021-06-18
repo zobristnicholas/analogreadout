@@ -213,7 +213,7 @@ class Sweep1(Sweep):
         self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.atleast_2d(np.linspace(self.frequency - self.span * 1e-3 / 2,
@@ -319,7 +319,7 @@ class Sweep2(Sweep):
         self.status_bar.value = "Creating sweep data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting sweep procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.vstack((np.linspace(self.frequency1 - self.span1 * 1e-3 / 2,
@@ -560,7 +560,7 @@ class Noise1(Noise):
         self.status_bar.value = "Creating noise data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
         n_noise = int(1 + self.off_res * self.n_offset)
@@ -593,7 +593,7 @@ class Noise2(Noise):
         self.status_bar.value = "Creating noise data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting noise procedure")
         # create output data structures so that data is still saved after abort
         n_noise = int(1 + self.off_res * self.n_offset)
@@ -813,7 +813,7 @@ class Pulse1(Pulse):
         self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency])
@@ -913,7 +913,7 @@ class Pulse2(Pulse):
         self.status_bar.value = "Creating pulse data structures"
         self.setup_procedure_log(name='temperature', file_name='temperature.log')
         self.setup_procedure_log(name='resistance', file_name='resistance.log')
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting pulse procedure")
         # create output data structures so that data is still saved after abort
         self.freqs = np.array([self.frequency1, self.frequency2])
@@ -1230,7 +1230,7 @@ class Fit1(Fit):
                               'q1_loop': result.data['q'],
                               'f1': result.data['f'],
                               't1': result.data['t']})
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting fit procedure")
 
     @classmethod
@@ -1298,7 +1298,7 @@ class Fit2(Fit):
                               't1': result.data['t1'],
                               'f2': result.data['f2'],
                               't2': result.data['t2']})
-        self.setup_procedure_log(name='', file_name='procedure.log', filter=['resistance', 'temperature'])
+        self.setup_procedure_log(name='', file_name='procedure.log', filter_=['resistance', 'temperature'])
         log.info("Starting fit procedure")
 
     @classmethod

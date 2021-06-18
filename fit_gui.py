@@ -10,20 +10,34 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 
+def get_config(file_name):
+    file_path = os.path.join(os.getcwd(), file_name)
+    if not os.path.isfile(file_path):  # check configurations folder
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
+    with open(file_path, "r") as f:
+        cfg = yaml.load(f, Loader=yaml.Loader)
+    return cfg
+
+
 def setup_logging():
-    log = logging.getLogger()
+    logger = logging.getLogger()
     directory = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logs'))
     if not os.path.isdir(directory):
         os.mkdir(directory)
-    file_name = datetime.now().strftime("analogreadout_%y%m%d.log")
-    file_path = os.path.join(directory, file_name)
-    handler = logging.FileHandler(file_path, mode='a', encoding='utf-8')
+    name = datetime.now().strftime("analogreadout_%y%m%d.log")
+    path = os.path.join(directory, name)
+    handler = logging.FileHandler(path, mode='a', encoding='utf-8')
     handler.setLevel("INFO")
-    log_format = logging.Formatter(fmt='%(asctime)s : %(message)s (%(levelname)s)', datefmt='%m/%d/%Y %I:%M:%S %p')
+    log_format = logging.Formatter(
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        fmt='%(asctime)s : %(message)s (%(levelname)s)')
     handler.setFormatter(log_format)
-    log.addHandler(handler)
+    logger.addHandler(handler)
+    # Hide very verbose libraries
     logging.getLogger("lakeshore").setLevel(logging.WARNING)
-    return log
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)
+    return logger
 
 
 def fit_window(configuration):
@@ -37,13 +51,7 @@ if __name__ == '__main__':
     setup_logging()
 
     # Open the configuration file.
-    file_name = sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb"
-    file_path = os.path.join(os.getcwd(), file_name)
-    if not os.path.isfile(file_path):  # check configurations folder
-        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 'analogreadout', 'configurations', file_name.lower() + ".yaml")
-    with open(file_path, "r") as f:
-        config = yaml.load(f, Loader=yaml.Loader)
+    config = get_config(sys.argv.pop(1) if len(sys.argv) > 1 else "ucsb")
 
     # Create the window.
     try:
