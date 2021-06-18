@@ -108,21 +108,26 @@ class ParaAmpThreeWaveUCSB:
         sleep(self.WAIT)
 
     def set_pump_power(self, power):
-        sleep_time = 0.1
-        # take 2 minutes to change the power by 30 dB
-        n_steps = int(120 / 30 * np.abs(power - self.pump_power) / sleep_time)
-        x = np.linspace(0, 1, n_steps)
-        powers = x * (power - self.pump_power) + self.pump_power
-        for p in powers:  # slow ramp
-            self.pump.set_power(p)
-            sleep(sleep_time)
-            if self.is_normal():
-                self.recover_from_normal()
-                log.warning("The para-amp went normal while setting the pump "
-                            "power and was shut off automatically.")
-                break
+        state = self.get_state(instruments="pump")
+        # If the pump is on we do a slow ramp.
+        if state['pump']['output_state']:
+            sleep_time = 0.1
+            # take 2 minutes to change the power by 30 dB
+            n_steps = 120 / 30 * np.abs(power - self.pump_power) / sleep_time
+            x = np.linspace(0, 1, int(n_steps))
+            powers = x * (power - self.pump_power) + self.pump_power
+            for p in powers:  # slow ramp
+                self.pump.set_power(p)
+                sleep(sleep_time)
+                if self.is_normal():
+                    self.recover_from_normal()
+                    log.warning("The para-amp went normal while setting the "
+                                "pump power and was shut off automatically.")
+                    break
+            else:
+                self.pump_power = power  # did not go normal
         else:
-            self.pump_power = power  # did not go normal
+            self.pump.set_power(power)
 
     def set_pump_frequency(self, frequency):
         # Get the state of the pump and bias power.
