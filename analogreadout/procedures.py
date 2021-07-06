@@ -344,7 +344,6 @@ class Sweep2(Sweep):
 
     def get_sweep_data(self, index):
         z_offset = np.mean(self.z_offset, axis=1)
-        print(z_offset.shape)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
             t1 = 20 * np.log10(np.abs(self.z[0, index] - z_offset[0])) - DB0
