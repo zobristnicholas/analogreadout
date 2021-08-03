@@ -69,7 +69,7 @@ class DAQ:
                                  'adc',  # adc attenuator
                                  'thermometer',  # device thermometer
                                  'primary_amplifier',  # first amplifier in the chain
-                                 'laser')  # laser source
+                                 'source')  # laser source
         for name in self.instrument_names:
             setattr(self, name, None)
         # set the instruments specified in the configuration
