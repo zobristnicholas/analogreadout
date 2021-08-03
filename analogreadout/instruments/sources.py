@@ -9,8 +9,9 @@ class LaserBox:
     """
     Arduino laser box controller.
     Notes:
-        - The physical buttons on the box override the computer control when pressed.
-        - The returned string is just the recieved data not the actual state.
+        - The physical buttons on the box override the computer control when
+          pressed.
+        - The returned string is just the received data not the actual state.
         - The computer ip must be set to an ip similar to the Arduino.
           e.g. arduino: 10.200.130.7, computer: 10.200.130.X
     """

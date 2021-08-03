@@ -8,9 +8,9 @@ import numpy as np
 import scipy.signal as sig
 from scipy.stats import median_abs_deviation
 from mkidplotter import (SweepBaseProcedure, MKIDProcedure, NoiseInput, Results, DirectoryParameter, BooleanListInput,
-                         Indicator, FloatIndicator, FileParameter, FitProcedure, FitInput, RangeInput)
+                         Indicator, FloatIndicator, FileParameter, FitProcedure, RangeInput)
 from pymeasure.experiment import (IntegerParameter, FloatParameter, BooleanParameter,
-                                  VectorParameter)
+                                  VectorParameter, Parameter)
 from analogreadout.utils import load
 
 import mkidcalculator as mc
@@ -636,6 +636,8 @@ class Pulse(MKIDProcedure):
     n_pulses = IntegerParameter("Number of Pulses", default=10000)
     n_trace = IntegerParameter("Data Points per Pulses", default=2000)
     noise = VectorParameter("Noise", default=[1, 1, 10], ui_class=NoiseInput)
+    ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
+    source = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
     status_bar = Indicator("Status")
     
     count_rates = []
@@ -681,7 +683,7 @@ class Pulse(MKIDProcedure):
 
         # take the data
         self.status_bar.value = "Taking pulse data"
-        self.daq.source.set_state(self.laser)
+        self.daq.source.set_state(self.source)
         self.pulse_count = 0
         amplitudes = np.zeros((data.shape[0], self.n_pulses))
         while self.pulse_count < self.n_pulses:
@@ -796,9 +798,6 @@ class Pulse1(Pulse):
     frequency = FloatParameter("Bias Frequency", units="GHz", default=4.0)
     count_rate = FloatIndicator("Count Rate", units="Hz", default=0)
     count_rates = [count_rate]
-    ui = BooleanListInput.set_labels(["254 nm", "406.6 nm", "671 nm", "808 nm", "920 nm", "980 nm", "1120 nm",
-                                      "1310 nm"])  # class factory
-    laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0, 0, 0, 0], length=8, ui_class=ui)
     DATA_COLUMNS = ["i", "q", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd', 'hist_x', 'hist_y']
     
     def startup(self):
@@ -886,6 +885,10 @@ class Pulse1(Pulse):
         return result_dict
 
 
+class Pulse1AnyWavelength(Pulse1):
+    source = FloatParameter("Wavelength", units="nm")
+
+
 class Pulse2(Pulse):
     frequency1 = FloatParameter("Channel 1 Bias Frequency", units="GHz", default=4.0)
     frequency2 = FloatParameter("Channel 2 Bias Frequency", units="GHz", default=4.0)
@@ -893,8 +896,6 @@ class Pulse2(Pulse):
     count_rate1 = FloatIndicator("Channel 1 Count Rate", units="Hz", default=0)
     count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
     count_rates = [count_rate1, count_rate2]
-    ui = BooleanListInput.set_labels(["808 nm", "920 nm", "980 nm", "1120 nm", "1310 nm"])  # class factory
-    laser = VectorParameter("Laser", default=[0, 0, 0, 0, 0], length=5, ui_class=ui)
 
     DATA_COLUMNS = ["i1", "q1", "i2", "q2", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd', 'f1_psd',
                     'i2_psd', 'q2_psd', 'f2_psd', 'peaks1', 'peaks2']
