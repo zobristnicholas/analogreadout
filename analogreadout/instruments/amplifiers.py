@@ -128,6 +128,7 @@ class ParaAmpThreeWaveUCSB:
                 self.pump_power = power  # did not go normal
         else:
             self.pump.set_power(power)
+            self.pump_power = power
 
     def set_pump_frequency(self, frequency):
         # Get the state of the pump and bias power.
