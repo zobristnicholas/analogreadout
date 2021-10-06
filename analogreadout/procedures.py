@@ -798,7 +798,7 @@ class Pulse1(Pulse):
     frequency = FloatParameter("Bias Frequency", units="GHz", default=4.0)
     count_rate = FloatIndicator("Count Rate", units="Hz", default=0)
     count_rates = [count_rate]
-    DATA_COLUMNS = ["i", "q", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd', 'hist_x', 'hist_y']
+    DATA_COLUMNS = ["i", "q", "t", "i_loop", "q_loop", 'i_psd', 'q_psd', 'f_psd', 'hist_x', 'hist_y']
     
     def startup(self):
         if self.should_stop():
@@ -827,6 +827,7 @@ class Pulse1(Pulse):
         try:
             data["i"] = pulses['I'][0, np.argmax(triggers[0, :]), :] - self.offset['I'][0]
             data["q"] = pulses['Q'][0, np.argmax(triggers[0, :]), :] - self.offset['Q'][0]
+            data["t"] = np.arange(self.n_trace) / (self.sample_rate * 1e6)
         except ValueError:  # attempt to get argmax of an empty sequence
             pass
         return data
@@ -870,6 +871,8 @@ class Pulse1(Pulse):
             pulses = npz_file['pulses']
         responses_i = pulses['I'] - np.median(pulses['I'], axis=2, keepdims=True)
         responses_q = pulses['Q'] - np.median(pulses['Q'], axis=2, keepdims=True)
+        sample_rate = npz_file['metadata'].item()['parameters']['sample_rate']
+        n_trace = npz_file['metadata'].item()['parameters']['n_trace']
         amplitudes = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
         counts, bins = np.histogram(amplitudes[amplitudes != 0], bins='auto', density=True)
         result_dict = {'i_loop': result.data['i'],
@@ -877,7 +880,8 @@ class Pulse1(Pulse):
                        'i': pulses['I'][0, -1, :] - npz_file['zero']["I"][0],
                        'q': pulses['Q'][0, -1, :] - npz_file['zero']["Q"][0],
                        'hist_x': bins,
-                       'hist_y': counts}
+                       'hist_y': counts,
+                       't': np.arange(n_trace) / (sample_rate * 1e6)}
         if psd is not None and freqs is not None:
             result_dict.update({"i_psd": psd[0, 0, 1:]['I'],
                                 "q_psd": psd[0, 0, 1:]['Q'],
@@ -897,8 +901,8 @@ class Pulse2(Pulse):
     count_rate2 = FloatIndicator("Channel 2 Count Rate", units="Hz", default=0)
     count_rates = [count_rate1, count_rate2]
 
-    DATA_COLUMNS = ["i1", "q1", "i2", "q2", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd', 'f1_psd',
-                    'i2_psd', 'q2_psd', 'f2_psd', 'peaks1', 'peaks2']
+    DATA_COLUMNS = ["i1", "q1", "i2", "q2", "t", "i1_loop", "q1_loop", "i2_loop", "q2_loop", 'i1_psd', 'q1_psd',
+                    'f1_psd', 'i2_psd', 'q2_psd', 'f2_psd', 'peaks1', 'peaks2']
 
     def startup(self):
         if self.should_stop():
@@ -936,6 +940,7 @@ class Pulse2(Pulse):
             data["q2"] = pulses['Q'][1, np.argmax(triggers[1, :]), :] - self.offset['Q'][1]
         except ValueError:  # attempt to get argmax of an empty sequence
             pass
+        data["t"] = np.arange(self.n_trace) / (self.sample_rate * 1e6)
         return data
 
     def emit_amplitude_data(self, amplitudes, new_pulses):
@@ -971,11 +976,13 @@ class Pulse2(Pulse):
             psd = None
             freqs = None
         if npz_file['pulses'].dtype.kind in ["U", "S"]:
-            pulses = np.load(npz_file['pulses'].item())
+            pulses = np.load(npz_file['pulses'].item(), allow_pickle=True)
         else:
             pulses = npz_file['pulses']
         responses_i = pulses['I'] - np.median(pulses['I'], axis=2, keepdims=True)
         responses_q = pulses['Q'] - np.median(pulses['Q'], axis=2, keepdims=True)
+        sample_rate = npz_file['metadata'].item()['parameters']['sample_rate']
+        n_trace = npz_file['metadata'].item()['parameters']['n_trace']
         amplitudes = np.max(np.sqrt(responses_i**2 + responses_q**2), axis=2)
         result = Sweep2.load(npz_file['metadata'].item()['parameters']['sweep_file'])
         result_dict = {'i1_loop': result.data['i1'],
@@ -987,7 +994,8 @@ class Pulse2(Pulse):
                        'i2': pulses['I'][1, 0, :] - npz_file['zero']["I"][1],
                        'q2': pulses['Q'][1, 0, :] - npz_file['zero']["Q"][1],
                        'peaks1': amplitudes[0],
-                       'peaks2': amplitudes[1]}
+                       'peaks2': amplitudes[1],
+                       't': np.arange(n_trace) / (sample_rate * 1e6)}
         if psd is not None and freqs is not None:
             result_dict.update({"i1_psd": psd[0, 0, 1:]['I'],
                                 "q1_psd": psd[0, 0, 1:]['Q'],
