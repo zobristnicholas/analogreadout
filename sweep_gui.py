@@ -78,12 +78,13 @@ def sweep_window(configuration):
     SweepGUI.open_fit_gui = partialmethod(open_fit_gui, configuration=configuration)
 
     # make the window
-    w = SweepGUI(persistent_indicators=indicators, **configuration['gui']['sweep'])
+    w = SweepGUI(configuration['procedures']['sweep'], persistent_indicators=indicators,
+                 **configuration['gui']['sweep'])
 
     # connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     pulse_gui.daq = DAQ(configuration)
-    configuration['gui']['sweep']['procedure_class'].connect_daq(pulse_gui.daq)
+    configuration['procedures']['sweep'].connect_daq(pulse_gui.daq)
     return w
 
 

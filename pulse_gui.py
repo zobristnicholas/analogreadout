@@ -52,16 +52,17 @@ def pulse_window(configuration):
     temperature_updater = Updater()
 
     # make the window
-    w = PulseGUI(persistent_indicators=indicators, **configuration['gui']['pulse'])
+    w = PulseGUI(configuration['procedures']['pulse'],
+                 persistent_indicators=indicators, **configuration['gui']['pulse'])
 
     # create and connect the daq to the process after making the window so that the log widget gets
     # the instrument creation log messages
     global daq
     if daq is not None:
-        configuration['gui']['pulse']['procedure_class'].connect_daq(daq)
+        configuration['procedures']['pulse'].connect_daq(daq)
     else:
         daq = DAQ(configuration)
-        configuration['gui']['pulse']['procedure_class'].connect_daq(daq)
+        configuration['procedures']['pulse'].connect_daq(daq)
     return w
 
 

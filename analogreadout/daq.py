@@ -115,8 +115,7 @@ class DAQ:
         Args:
             procedure_type: sweep, noise, or pulse (str)
         """
-        library = importlib.import_module("analogreadout.procedures")
-        procedure_class = getattr(library, self.config["procedures"][procedure_type])
+        procedure_class = self.config["procedures"][procedure_type.lower()]
         procedure_class.connect_daq(self)
         return procedure_class
     

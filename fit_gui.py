@@ -42,7 +42,7 @@ def setup_logging():
 
 def fit_window(configuration):
     # make the window
-    w = FitGUI(**configuration['gui']['fit'])
+    w = FitGUI(configuration['procedures']['fit'], **configuration['gui']['fit'])
     return w
 
 
