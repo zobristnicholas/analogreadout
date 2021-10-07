@@ -89,7 +89,7 @@ class DAQ:
             elif key == "primary_amplifier":
                 self.primary_amplifier = get_instrument(value)
         for key, value in self.config['sources'].items():
-            if key == "laser":
+            if key == "source":
                 self.source = get_instrument(value)
         # if the instrument wasn't initialized set it to a dummy NotAnInstrument class
         if self.dac_atten is None:
@@ -101,7 +101,7 @@ class DAQ:
         if self.primary_amplifier is None:
             self.primary_amplifier = NotAnAmplifier("Primary Amplifier")
         if self.source is None:
-            self.source = NotASource("Laser Box")
+            self.source = NotASource("Laser")
 
         # Thermometer should be initialized immediately since it runs in the background
         self.thermometer.initialize()
