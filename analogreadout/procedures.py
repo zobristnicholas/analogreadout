@@ -1006,6 +1006,10 @@ class Pulse2(Pulse):
         return result_dict
 
 
+class Pulse2AnyWavelength(Pulse2):
+    source = FloatParameter("Wavelength", units="nm")
+
+
 class Fit(FitProcedure):
     FIT_PARAMETERS = ["f0", "qi", "qc", "xa", "a", "gain0", "gain1", "gain2", "phase0", "phase1", "phase2",
                       "alpha", "beta", "gamma", "delta"]
