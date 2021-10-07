@@ -93,7 +93,7 @@ class Weinschel83102042F:
 class NotAnAttenuator:
     def __init__(self, name=''):
         self.name = name
-        message = "{} attenuator does not exist and will be ignored"
+        message = "{} attenuator was not connected."
         log.warning(message.format(self.name))
 
     def initialize(self, attenuation):

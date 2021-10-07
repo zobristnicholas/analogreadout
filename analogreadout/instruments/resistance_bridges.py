@@ -184,7 +184,7 @@ class NotAThermometer(LS370):
     def __init__(self):
         transport = SimulatedTransport()            
         super().__init__(transport)
-        log.warning("Thermometer does not exist and will be ignored")
+        log.warning("No thermometer was connected.")
         self.channel = np.nan
         self.temperature = np.nan
         self.resistance = np.nan

@@ -195,7 +195,7 @@ class ParaAmpThreeWaveUCSB:
 class NotAnAmplifier:
     def __init__(self, name=''):
         self.name = name
-        message = "The {} is not connected and was not initialized"
+        message = "The {} was not connected."
         log.warning(message.format(self.name))
 
     def initialize(self):

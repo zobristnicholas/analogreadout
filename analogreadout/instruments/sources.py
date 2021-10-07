@@ -66,7 +66,7 @@ class NotASource:
     
     def __init__(self, name=''):
         self.name = name
-        message = "{} source is not connected and was not initialized"
+        message = "No source was connected."
         log.warning(message.format(self.name))
 
     def initialize(self, state):
